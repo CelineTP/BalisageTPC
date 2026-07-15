@@ -415,7 +415,7 @@ var tokenClient=null;
 
 function initGoogleClient(){
   // Client ID à saisir par l'utilisateur ou hard-codé ici
-  var clientId=localStorage.getItem('bp_gcid')||'';
+  var clientId = "34991330000-njchek8l43e6oi1bh9e3e8qhicmjf1jo.apps.googleusercontent.com";;
   if(!clientId) return;
   if(typeof google==='undefined'||!google.accounts) return;
   tokenClient=google.accounts.oauth2.initTokenClient({
