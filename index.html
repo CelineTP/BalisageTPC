@@ -227,7 +227,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--txt);displa
     </code>
   </div>
   <div class="card" style="background:var(--navy);color:#fff;">
-    <div style="font-size:13px;font-weight:700;">BalisagePro v3.2</div>
+    <div style="font-size:13px;font-weight:700;">BalisagePro v3.3</div>
     <div style="font-size:12px;opacity:.6;margin-top:4px;">Donnees sauvegardees automatiquement. Fichier XLS format Excel 5.0/95.</div>
   </div>
 </div>
@@ -299,7 +299,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--txt);displa
 'use strict';
 
 // ── CONSTANTES ────────────────────────────────────────
-var CLIENT_ID = '166940856946-8fsmo6ucbf5rff9qu1ld1va6chr45j6j.apps.googleusercontent.com';
+var CLIENT_ID = '34991330000-njchek8l43e6oi1bh9e3e8qhicmjf1jo.apps.googleusercontent.com';
 var SCOPES = 'https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/drive.file';
 
 // ── ÉTAT ──────────────────────────────────────────────
@@ -417,6 +417,7 @@ function initTokenClient(){
   tokenClient = google.accounts.oauth2.initTokenClient({
     client_id: CLIENT_ID,
     scope: SCOPES,
+    ux_mode: 'popup',
     callback: function(resp){
       if(resp.error){
         toast('Erreur Google: ' + resp.error, 'er');
