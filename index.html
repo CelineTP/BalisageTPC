@@ -850,14 +850,14 @@ $('btn-send-gmail').onclick = function(){
 function doSend(l, email){
   var r = buildXLS(l);
   if(!r){ toast('Erreur génération XLS', 'er'); return; }
-  showOverlay('Sauvegarde sur Drive…');
+  //showOverlay('Sauvegarde sur Drive…');
   uploadDrive(r.blob, r.name, function(driveErr, driveUrl){
     setOverlayMsg('Envoi par Gmail…');
     var sn   = localStorage.getItem('bp_sn') || 'Magasin';
     var subj = 'Balisage - ' + l.name + ' - ' + l.date + ' - ' + sn;
     var body = 'Bonjour,\n\nFichier de balisage :\n- Liste : ' + l.name + '\n- Type : ' + l.type + '\n- Date : ' + l.date + '\n- Articles : ' + l.arts.length + (driveUrl ? '\n\nLien Drive : ' + driveUrl : '') + '\n\nCordialement,\n' + sn
     sendMail(email, subj, body, r.blob, r.name, function(err){
-      hideOverlay();
+      //hideOverlay();
       if(err && err.status === 401){
         googleToken = null; localStorage.removeItem('bp_gt');
         updateGoogleUI(false);
