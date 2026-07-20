@@ -9,7 +9,6 @@
 <meta name="apple-mobile-web-app-title" content="BalisagePro">
 <meta name="theme-color" content="#1A2B3C">
 <title>BalisagePro</title>
-<link rel="icon" type="image/png" href="app.png">
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="https://accounts.google.com/gsi/client" async></script>
 <style>
@@ -228,7 +227,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--txt);displa
     </code>
   </div>
   <div class="card" style="background:var(--navy);color:#fff;">
-    <div style="font-size:13px;font-weight:700;">BalisagePro v3.3</div>
+    <div style="font-size:13px;font-weight:700;">BalisagePro v3.4</div>
     <div style="font-size:12px;opacity:.6;margin-top:4px;">Donnees sauvegardees automatiquement. Fichier XLS format Excel 5.0/95.</div>
   </div>
 </div>
@@ -253,16 +252,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--txt);displa
     <div class="mhdl"></div>
     <div class="mtit">Nouvelle liste</div>
     <div class="fg"><label class="fl">Nom</label><input class="fi" type="text" id="nl-nm" placeholder="Ex : Tete de gondole Bricolage"></div>
-    <div class="fg"><label class="fl">Type</label>
-      <div class="chips" id="type-chips">
-        <div class="chip on" data-t="Tete de gondole">Tete de gondole</div>
-        <div class="chip" data-t="Reglette">Reglette lineaire</div>
-        <div class="chip" data-t="Textile">Textile</div>
-        <div class="chip" data-t="Meuble">Meuble</div>
-        <div class="chip" data-t="Promo">Promo</div>
-        <div class="chip" data-t="Autre">Autre</div>
-      </div>
-    </div>
+
     <div style="display:flex;gap:10px;">
       <button class="btn bS" style="flex:1" id="btn-nl-cancel">Annuler</button>
       <button class="btn bP" style="flex:1" id="btn-nl-ok">Creer</button>
@@ -300,7 +290,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--txt);displa
 'use strict';
 
 // ── CONSTANTES ────────────────────────────────────────
-var CLIENT_ID = '166940856946-eab21rm185khc53u58cdf6rbn76cda9t.apps.googleusercontent.com';
+var CLIENT_ID = '34991330000-njchek8l43e6oi1bh9e3e8qhicmjf1jo.apps.googleusercontent.com';
 var SCOPES = 'https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/drive.file';
 
 // ── ÉTAT ──────────────────────────────────────────────
@@ -554,8 +544,8 @@ scanInEl.addEventListener('keydown', function(e){
 scanInEl.addEventListener('input', function(){
   var v = this.value.trim();
   clearTimeout(this._t);
-  if(v.length >= 8){
-    this._t = setTimeout(function(){ searchArt(v); }, 400);
+  if(v.length >= 4){
+    this._t = setTimeout(function(){ searchArt(v); }, 600);
   }
 });
 btnSearch.onclick = function(){ searchArt(scanInEl.value.trim()); };
@@ -564,20 +554,33 @@ btnCam1.onclick   = function(){ openCam('scan'); };
 function findArt(q){
   if(!q) return null;
   q = String(q).trim();
+  if(!q) return null;
+
+  // 1. Recherche par EAN exact (numérique)
   var ean = ne(q);
-  if(ean && arts[ean]) return arts[ean];
+  if(ean.length > 0 && arts[ean]) return arts[ean];
+
+  // 2. Recherche par code article exact
   if(arts['C'+q]) return arts['C'+q];
+
+  // 3. Scan complet: EAN ou code
   var keys = Object.keys(arts);
-  for(var i = 0; i < keys.length; i++){
-    var a = arts[keys[i]];
-    if(a.ean && ne(a.ean) === ean && ean.length > 0) return a;
-    if(a.code === q) return a;
+  var i, a;
+  for(i = 0; i < keys.length; i++){
+    a = arts[keys[i]];
+    // EAN: comparer les chiffres uniquement
+    if(ean.length > 0 && a.ean && ne(a.ean) === ean) return a;
+    // Code exact
+    if(a.code && a.code === q) return a;
+    // Code sans zéros initiaux (ex: "158" → "000158")
+    if(a.code && a.code.replace(/^0+/,'') === q.replace(/^0+/,'') && q.length > 0) return a;
   }
-  // Recherche par libellé (partielle, insensible à la casse)
+
+  // 4. Recherche par libellé (partielle, insensible casse)
   var ql = q.toLowerCase();
-  for(var j = 0; j < keys.length; j++){
-    var b = arts[keys[j]];
-    if(b.lib && b.lib.toLowerCase().indexOf(ql) !== -1) return b;
+  for(i = 0; i < keys.length; i++){
+    a = arts[keys[i]];
+    if(a.lib && a.lib.toLowerCase().indexOf(ql) !== -1) return a;
   }
   return null;
 }
@@ -622,24 +625,17 @@ $('btn-nl-cancel').onclick = function(){ closeMod('m-nl'); };
 $('btn-nl-ok').onclick    = createList;
 $('btn-al-cancel').onclick = function(){ closeMod('m-al'); };
 
-document.querySelectorAll('#type-chips .chip').forEach(function(c){
-  c.onclick = function(){
-    document.querySelectorAll('#type-chips .chip').forEach(function(x){ x.classList.remove('on'); });
-    this.classList.add('on');
-  };
-});
+
 
 function openNewList(){
   $('nl-nm').value = '';
-  document.querySelectorAll('#type-chips .chip').forEach(function(c,i){ c.classList.toggle('on', i===0); });
   openMod('m-nl');
   setTimeout(function(){ $('nl-nm').focus(); }, 300);
 }
 function createList(){
   var name = $('nl-nm').value.trim();
   if(!name){ toast('Saisissez un nom', 'er'); return; }
-  var tc = document.querySelector('#type-chips .chip.on');
-  var l  = { id: Date.now().toString(), name: name, type: tc ? tc.dataset.t : 'Autre', date: todayStr(), arts: [] };
+  var l  = { id: Date.now().toString(), name: name, date: todayStr(), arts: [] };
   lists.unshift(l);
   saveLists();
   closeMod('m-nl'); renderLists(); updBdg();
@@ -719,8 +715,8 @@ scanListEl.addEventListener('keydown', function(e){
 scanListEl.addEventListener('input', function(){
   var v = this.value.trim();
   clearTimeout(this._t);
-  if(v.length >= 8){
-    this._t = setTimeout(function(){ addToCurrentList(v); }, 400);
+  if(v.length >= 4){
+    this._t = setTimeout(function(){ addToCurrentList(v); }, 600);
   }
 });
 btnSearchList.onclick = function(){ addToCurrentList(scanListEl.value.trim()); };
@@ -740,7 +736,7 @@ function addToCurrentList(q){
   saveLists();
   inp.value = '';
   renderDetArts();
-  $('det-info').textContent = l.type + ' · ' + l.date + ' · ' + l.arts.length + ' article(s)';
+  $('det-info').textContent = l.date + ' · ' + l.arts.length + ' article(s)';
   toast(a.lib.substring(0,30) + '…', 'ok');
 }
 
@@ -804,21 +800,103 @@ $('btn-del-list').onclick = function(){
 
 // ── GÉNÉRATION XLS ────────────────────────────────────
 function buildXLS(l){
-  // CSV point-virgule avec extension .xls (compatible Excel 5.0/95 et logiciels de caisse)
-  // Code-barre = nombre pur, Quantite = entier
+  // Génère un vrai fichier XLS BIFF5 (Excel 5.0/95)
+  // Compatible avec les logiciels de caisse qui n'acceptent que ce format
   var dateFile = l.date.replace(/\//g, '-');
   var fname = safeName(l.name) + '_' + dateFile + '.xls';
-  var rows = ['Code-barre;Libelle;Quantite'];
+
+  // Données: en-tête + lignes
+  var rows = [['Code-barre', 'Libelle', 'Quantite']];
   l.arts.forEach(function(a){
     var ean = a.ean ? ne(a.ean) : (a.code ? String(a.code) : '');
-    var lib = (a.lib||'').replace(/;/g,' ').replace(/"/g,'');
-    rows.push(ean + ';' + lib + ';' + String(a.qty||1));
+    rows.push([ean, a.lib || '', a.qty || 1]);
   });
-  var csv = rows.join('\r\n');
+
+  // Génération BIFF5
+  var data = biff5(rows);
   return {
-    blob: new Blob(['\uFEFF' + csv], {type:'text/plain;charset=utf-8'}),
+    blob: new Blob([data], {type: 'application/vnd.ms-excel'}),
     name: fname
   };
+}
+
+function biff5(rows){
+  // Helpers binaires
+  function w2(n){ return [n & 0xFF, (n >> 8) & 0xFF]; }
+  function w4(n){ return [n & 0xFF, (n>>8)&0xFF, (n>>16)&0xFF, (n>>24)&0xFF]; }
+  function rec(type, data){
+    var hdr = w2(type).concat(w2(data.length));
+    return hdr.concat(data);
+  }
+  function strBytes(s){
+    // BIFF5 string: 2 bytes length + characters (1 byte each, ASCII/Latin1)
+    s = String(s || '').substring(0, 255);
+    var len = w2(s.length);
+    var chars = [];
+    for(var i=0;i<s.length;i++) chars.push(s.charCodeAt(i) & 0xFF);
+    return len.concat(chars);
+  }
+
+  var bytes = [];
+
+  // BOF record (BIFF5 workbook)
+  bytes = bytes.concat(rec(0x0809, [0x05,0x00,0x00,0x00,0x05,0x00,0x01,0x00,0x00,0x00,0x00,0x00]));
+
+  // CODEPAGE: Windows-1252
+  bytes = bytes.concat(rec(0x0042, [0xE4,0x04]));
+
+  // WINDOW1
+  bytes = bytes.concat(rec(0x003D, w2(0x0000).concat(w2(0x0000)).concat(w2(0x4E20)).concat(w2(0x2D00)).concat([0x38,0x00,0x00,0x00,0x01,0x00,0x58,0x02])));
+
+  // FONT record (default font)
+  var fontData = w2(200).concat(w2(0)).concat(w2(0)).concat([0x00]).concat([0x00]).concat(w2(400)).concat([0x00,0x00]).concat(strBytes('Arial'));
+  bytes = bytes.concat(rec(0x0031, fontData));
+
+  // XF record (default format)
+  for(var xfi=0;xfi<16;xfi++){
+    bytes = bytes.concat(rec(0x00E0, [0x00,0x00,0xFF,0xFF,0x20,0x00,0xC0,0xF4,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00]));
+  }
+
+  // BOUNDSHEET (first sheet)
+  var sheetNameB = strBytes('Feuille1');
+  var bsData = w4(0).concat([0x00,0x00]).concat(sheetNameB);
+  bytes = bytes.concat(rec(0x0085, bsData));
+
+  // EOF workbook globals
+  bytes = bytes.concat(rec(0x000A, []));
+
+  // BOF worksheet
+  bytes = bytes.concat(rec(0x0809, [0x05,0x00,0x00,0x00,0x10,0x00,0x01,0x00,0x00,0x00,0x00,0x00]));
+
+  // Write rows
+  for(var r=0;r<rows.length;r++){
+    var row = rows[r];
+    for(var c=0;c<row.length;c++){
+      var val = row[c];
+      if(r === 0 || c === 1){
+        // String cell (LABEL record)
+        var sdata = w2(r).concat(w2(c)).concat(w2(0x0000)).concat(strBytes(String(val)));
+        bytes = bytes.concat(rec(0x0204, sdata));
+      } else {
+        // Number cell (NUMBER record) - stored as IEEE 754 double
+        var num = parseFloat(val) || 0;
+        var numBytes = doubleToBytes(num);
+        var ndata = w2(r).concat(w2(c)).concat(w2(0x0000)).concat(numBytes);
+        bytes = bytes.concat(rec(0x0203, ndata));
+      }
+    }
+  }
+
+  // EOF worksheet
+  bytes = bytes.concat(rec(0x000A, []));
+
+  return new Uint8Array(bytes);
+}
+
+function doubleToBytes(n){
+  var buf = new ArrayBuffer(8);
+  new DataView(buf).setFloat64(0, n, true); // little-endian
+  return Array.from(new Uint8Array(buf));
 }
 
 // ── TÉLÉCHARGEMENT LOCAL ──────────────────────────────
@@ -851,14 +929,14 @@ $('btn-send-gmail').onclick = function(){
 function doSend(l, email){
   var r = buildXLS(l);
   if(!r){ toast('Erreur génération XLS', 'er'); return; }
-  //showOverlay('Sauvegarde sur Drive…');
+  showOverlay('Sauvegarde sur Drive…');
   uploadDrive(r.blob, r.name, function(driveErr, driveUrl){
     setOverlayMsg('Envoi par Gmail…');
     var sn   = localStorage.getItem('bp_sn') || 'Magasin';
     var subj = 'Balisage - ' + l.name + ' - ' + l.date + ' - ' + sn;
     var body = 'Bonjour,\n\nFichier de balisage :\n- Liste : ' + l.name + '\n- Type : ' + l.type + '\n- Date : ' + l.date + '\n- Articles : ' + l.arts.length + (driveUrl ? '\n\nLien Drive : ' + driveUrl : '') + '\n\nCordialement,\n' + sn
     sendMail(email, subj, body, r.blob, r.name, function(err){
-      //hideOverlay();
+      hideOverlay();
       if(err && err.status === 401){
         googleToken = null; localStorage.removeItem('bp_gt');
         updateGoogleUI(false);
@@ -874,75 +952,81 @@ function doSend(l, email){
 }
 
 function uploadDrive(blob, fname, cb){
-  var reader = new FileReader();
-  reader.onload = function(e){
-    var b64  = e.target.result.split(',')[1];
-    var bnd  = 'bndBalisage';
-    var meta = JSON.stringify({name: fname, mimeType:'application/vnd.ms-excel'});
-    var body = '--'+bnd+'\r\nContent-Type: application/json\r\n\r\n'+meta+
-               '\r\n--'+bnd+'\r\nContent-Type: application/vnd.ms-excel\r\nContent-Transfer-Encoding: base64\r\n\r\n'+
-               b64+'\r\n--'+bnd+'--';
-    var xhr = new XMLHttpRequest();
-    xhr.open('POST','https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart');
-    xhr.setRequestHeader('Authorization','Bearer '+googleToken);
-    xhr.setRequestHeader('Content-Type','multipart/related; boundary='+bnd);
-    xhr.onload = function(){
-      if(xhr.status===200||xhr.status===201){
-        var fid = JSON.parse(xhr.responseText).id;
-        // Rendre lisible par tous
-        var x2 = new XMLHttpRequest();
-        x2.open('POST','https://www.googleapis.com/drive/v3/files/'+fid+'/permissions');
-        x2.setRequestHeader('Authorization','Bearer '+googleToken);
-        x2.setRequestHeader('Content-Type','application/json');
-        x2.onload = function(){ cb(null,'https://drive.google.com/file/d/'+fid+'/view'); };
-        x2.onerror= function(){ cb(null,'https://drive.google.com/file/d/'+fid+'/view'); };
-        x2.send(JSON.stringify({role:'reader',type:'anyone'}));
-      } else {
-        cb({status:xhr.status, msg:'Drive '+xhr.status}, null);
-      }
-    };
-    xhr.onerror = function(){ cb({msg:'Réseau Drive'}, null); };
-    xhr.send(body);
-  };
-  reader.readAsDataURL(blob);
+  // Upload sur Google Drive via fetch (supporte binaire BIFF5)
+  var meta = JSON.stringify({name: fname, mimeType: 'application/vnd.ms-excel'});
+  var metaBlob = new Blob([meta], {type: 'application/json'});
+  var form = new FormData();
+  form.append('metadata', metaBlob);
+  form.append('file', blob);
+
+  fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + googleToken },
+    body: form
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data){
+    if(!data.id){ cb({msg: 'Drive: pas de fichier ID', status: 0}, null); return; }
+    var fid = data.id;
+    // Rendre le fichier lisible par tous
+    fetch('https://www.googleapis.com/drive/v3/files/' + fid + '/permissions', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + googleToken, 'Content-Type': 'application/json' },
+      body: JSON.stringify({role: 'reader', type: 'anyone'})
+    })
+    .then(function(){ cb(null, 'https://drive.google.com/file/d/' + fid + '/view'); })
+    .catch(function(){ cb(null, 'https://drive.google.com/file/d/' + fid + '/view'); });
+  })
+  .catch(function(e){ cb({msg: 'Erreur Drive: ' + e.message, status: 0}, null); });
 }
 
-function sendMail(to, subject, body, attach, aname, cb){
+function sendMail(to, subject, bodyText, attach, aname, cb){
+  // Construire email MIME avec pièce jointe binaire (XLS BIFF5)
   var reader = new FileReader();
   reader.onload = function(e){
     var b64 = e.target.result.split(',')[1];
-    var bnd = 'bndMail';
+    // Encoder le sujet en Base64 pour éviter les problèmes d'accents
+    var subjEnc = '=?UTF-8?B?' + btoa(unescape(encodeURIComponent(subject))) + '?=';
+    var boundary = 'BP_BALISAGE_' + Date.now();
     var mime = [
-      'To: '+to,
-      'Subject: '+subject,
+      'To: ' + to,
+      'Subject: ' + subjEnc,
       'MIME-Version: 1.0',
-      'Content-Type: multipart/mixed; boundary="'+bnd+'"',
+      'Content-Type: multipart/mixed; boundary="' + boundary + '"',
       '',
-      '--'+bnd,
+      '--' + boundary,
       'Content-Type: text/plain; charset=UTF-8',
-      '',
-      body,
-      '',
-      '--'+bnd,
-      'Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'Content-Transfer-Encoding: base64',
-      'Content-Disposition: attachment; filename="'+aname+'"',
+      '',
+      btoa(unescape(encodeURIComponent(bodyText))),
+      '',
+      '--' + boundary,
+      'Content-Type: application/vnd.ms-excel; name="' + aname + '"',
+      'Content-Transfer-Encoding: base64',
+      'Content-Disposition: attachment; filename="' + aname + '"',
       '',
       b64,
-      '--'+bnd+'--'
+      '--' + boundary + '--'
     ].join('\r\n');
-    var encoded = btoa(unescape(encodeURIComponent(mime))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
-    var xhr = new XMLHttpRequest();
-    xhr.open('POST','https://gmail.googleapis.com/gmail/v1/users/me/messages/send');
-    xhr.setRequestHeader('Authorization','Bearer '+googleToken);
-    xhr.setRequestHeader('Content-Type','application/json');
-    xhr.onload = function(){
-      if(xhr.status===200||xhr.status===201) cb(null);
-      else cb({status:xhr.status, msg:'Gmail '+xhr.status});
-    };
-    xhr.onerror = function(){ cb({msg:'Réseau Gmail'}); };
-    xhr.send(JSON.stringify({raw:encoded}));
+
+    var raw = btoa(unescape(encodeURIComponent(mime)))
+      .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+
+    fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + googleToken,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({raw: raw})
+    })
+    .then(function(r){
+      if(r.status === 200 || r.status === 201){ cb(null); }
+      else { r.json().then(function(d){ cb({status: r.status, msg: d.error ? d.error.message : 'Erreur ' + r.status}); }); }
+    })
+    .catch(function(e){ cb({msg: 'Erreur réseau Gmail: ' + e.message, status: 0}); });
   };
+  reader.onerror = function(){ cb({msg: 'Erreur lecture fichier', status: 0}); };
   reader.readAsDataURL(attach);
 }
 
@@ -1007,16 +1091,7 @@ if(!Object.keys(arts).length){
 }
 
 })();
-function showOverlay() {
-    console.log("L'overlay s'affiche (simulation)");
-    // Si vous avez une div avec l'id 'overlay', vous pouvez l'afficher ici :
-    // document.getElementById('overlay').style.display = 'block';
-}
 
-function hideOverlay() {
-    console.log("L'overlay se cache (simulation)");
-    // document.getElementById('overlay').style.display = 'none';
-}
 </script>
 </body>
 </html>
