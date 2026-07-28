@@ -810,7 +810,7 @@ function buildXLS(l){
   var fname = safeName(l.name) + '_' + dateFile + '.xls';
 
   // Construire les données
-  var rows = [['Code-barre','Libelle','Quantite']];
+  var rows = [['Code-barre','Libellé','Quantité']];
   l.arts.forEach(function(a){
     // EAN en priorité, sinon code article
     var ean = a.ean ? ne(a.ean) : (a.code ? String(a.code) : '');
@@ -871,13 +871,8 @@ function buildBiff5Book(rows){
   for(var ri=0;ri<rows.length;ri++){
     var row=rows[ri];
     ws=ws.concat(rec(0x0208, u16(ri).concat(u16(0)).concat(u16(3)).concat(u16(0xFF)).concat(u16(0)).concat([0,0,0,0])));
-    // Col 0: EAN (nombre) ou en-tête
-    if(ri===0){ ws=ws.concat(label(ri,0,15,row[0])); }
-    else{
-      var eanVal=parseFloat(String(row[0]).replace(/[^0-9]/g,''));
-      if(!isNaN(eanVal)&&eanVal>0){ ws=ws.concat(number(ri,0,15,eanVal)); }
-      else{ ws=ws.concat(label(ri,0,15,row[0])); }
-    }
+   / Col 0: EAN (toujours forcé en texte pour éviter la notation scientifique)
+    ws=ws.concat(label(ri, 0, 15, row[0]));
     // Col 1: Libellé (texte)
     ws=ws.concat(label(ri,1,15,row[1]));
     // Col 2: Quantité (entier) ou en-tête
