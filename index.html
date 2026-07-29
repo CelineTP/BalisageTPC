@@ -105,16 +105,6 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--txt);displa
 #toast.er{background:var(--red);}
 .emp{text-align:center;padding:36px 20px;color:var(--mut);}
 .emp p{font-size:14px;line-height:1.6;margin-top:12px;}
-.smode-btn{flex:1;padding:7px 10px;border-radius:20px;border:1.5px solid rgba(255,255,255,.3);background:transparent;color:rgba(255,255,255,.6);font-size:12px;font-weight:600;cursor:pointer;transition:all .15s;font-family:'Inter',sans-serif;}
-.smode-btn.on{background:rgba(255,255,255,.2);border-color:#fff;color:#fff;}
-.results-list{display:flex;flex-direction:column;gap:8px;margin-bottom:12px;}
-.result-item{background:#fff;border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 6px rgba(0,0,0,.08);cursor:pointer;transition:box-shadow .15s;}
-.result-item:active{box-shadow:0 2px 12px rgba(0,0,0,.15);}
-.result-lib{font-size:14px;font-weight:600;color:var(--txt);line-height:1.3;}
-.result-meta{font-size:11px;color:var(--mut);margin-top:3px;}
-.result-price{font-family:'Barlow Condensed',sans-serif;font-size:20px;font-weight:800;color:var(--org);flex-shrink:0;}
-.result-count{font-size:12px;color:var(--mut);padding:8px 0 4px;font-weight:600;}
-.result-add{background:var(--grn);color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0;}
 #send-overlay{display:none;position:fixed;inset:0;background:rgba(26,43,60,.88);z-index:600;flex-direction:column;align-items:center;justify-content:center;gap:16px;}
 #send-overlay.on{display:flex;}
 .spinner{width:48px;height:48px;border:4px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite;}
@@ -139,10 +129,6 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--txt);displa
       <input class="si" type="text" id="scan-in" placeholder="Code-barres, code ou libelle..." autocomplete="off" autocorrect="off">
       <button class="bsearch" id="btn-search">&#128269;</button>
       <button class="bcam" id="btn-cam1"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></button>
-    </div>
-    <div style="display:flex;gap:8px;margin-top:10px;">
-      <button class="smode-btn on" id="smode-starts" onclick="setSearchMode('starts')">Commence par</button>
-      <button class="smode-btn" id="smode-contains" onclick="setSearchMode('contains')">Contient</button>
     </div>
   </div>
   <div id="art-zone"></div>
@@ -242,7 +228,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--txt);displa
     </code>
   </div>
   <div class="card" style="background:var(--navy);color:#fff;">
-    <div style="font-size:13px;font-weight:700;">BalisageTPC v3.5</div>
+    <div style="font-size:13px;font-weight:700;">BalisagePro v3.5</div>
     <div style="font-size:12px;opacity:.6;margin-top:4px;">Donnees sauvegardees automatiquement. Fichier XLS format Excel 5.0/95.</div>
   </div>
 </div>
@@ -548,136 +534,67 @@ function updCnt(){
 }
 
 // ── CONSULTATION + RECHERCHE MANUELLE ─────────────────
-// ── MODE DE RECHERCHE ────────────────────────────────
-var searchMode = 'starts';
-
-function setSearchMode(mode){
-  searchMode = mode;
-  document.querySelectorAll('.smode-btn').forEach(function(b){ b.classList.remove('on'); });
-  $('smode-'+mode).classList.add('on');
-  var v = $('scan-in').value.trim();
-  if(v.length >= 3 && !/^[0-9]+$/.test(v)) doSearch(v);
-}
-
-// ── ÉVÉNEMENTS CHAMP CONSULTER ────────────────────────
-var scanInEl  = $('scan-in');
-var btnSearch = $('btn-search');
-var btnCam1   = $('btn-cam1');
+var scanInEl   = $('scan-in');
+var btnSearch  = $('btn-search');
+var btnCam1    = $('btn-cam1');
 
 scanInEl.addEventListener('keydown', function(e){
-  if(e.key === 'Enter'){ e.preventDefault(); doSearch(this.value.trim()); }
+  if(e.key === 'Enter'){ e.preventDefault(); searchArt(this.value.trim()); }
 });
+// Auto-search pour douchette (longueur suffisante + pause)
 scanInEl.addEventListener('input', function(){
   var v = this.value.trim();
   clearTimeout(this._t);
-  var isNum = /^[0-9]+$/.test(v);
-  if(isNum && v.length >= 8){
-    this._t = setTimeout(function(){ doSearch(v); }, 400);
-  } else if(!isNum && v.length >= 3){
-    this._t = setTimeout(function(){ doSearch(v); }, 400);
+  if(v.length >= 4){
+    this._t = setTimeout(function(){ searchArt(v); }, 600);
   }
 });
-btnSearch.onclick = function(){ doSearch(scanInEl.value.trim()); };
+btnSearch.onclick = function(){ searchArt(scanInEl.value.trim()); };
 btnCam1.onclick   = function(){ openCam('scan'); };
 
-// ── RECHERCHE PRINCIPALE ──────────────────────────────
-function doSearch(q){
-  if(!q) return;
-  var z = $('art-zone');
-  var isNum = /^[0-9]+$/.test(q.trim());
-  if(isNum){
-    var a = findArtExact(q.trim());
-    if(!a){
-      z.innerHTML = '<div class="card" style="border-left:4px solid var(--red);"><strong style="color:var(--red);">Article introuvable</strong><div style="font-size:13px;color:var(--mut);margin-top:6px;">Code ' + q + ' absent du stock.</div></div>';
-    } else {
-      z.innerHTML = renderArtCard(a);
-    }
-  } else {
-    var results = findArtsByLib(q.trim(), searchMode);
-    if(results.length === 0){
-      z.innerHTML = '<div class="card" style="border-left:4px solid var(--red);"><strong style="color:var(--red);">Aucun resultat</strong><div style="font-size:13px;color:var(--mut);margin-top:6px;">Aucun article pour "' + q + '".</div></div>';
-    } else if(results.length === 1){
-      z.innerHTML = renderArtCard(results[0]);
-    } else {
-      z.innerHTML = renderResultsList(results, q);
-    }
-  }
-}
+function findArt(q){
+  if(!q) return null;
+  q = String(q).trim();
+  if(!q) return null;
 
-// ── RECHERCHE EXACTE NUMÉRIQUE ────────────────────────
-function findArtExact(q){
+  // 1. Recherche par EAN exact (numérique)
   var ean = ne(q);
-  if(ean && arts[ean]) return arts[ean];
+  if(ean.length > 0 && arts[ean]) return arts[ean];
+
+  // 2. Recherche par code article exact
   if(arts['C'+q]) return arts['C'+q];
+
+  // 3. Scan complet: EAN ou code
   var keys = Object.keys(arts);
-  for(var i=0;i<keys.length;i++){
-    var a = arts[keys[i]];
-    if(a.ean && ne(a.ean)===ean && ean.length>0) return a;
-    if(a.code && a.code===q) return a;
-    if(a.code && a.code.replace(/^0+/,'')===q.replace(/^0+/,'') && q.length>0) return a;
+  var i, a;
+  for(i = 0; i < keys.length; i++){
+    a = arts[keys[i]];
+    // EAN: comparer les chiffres uniquement
+    if(ean.length > 0 && a.ean && ne(a.ean) === ean) return a;
+    // Code exact
+    if(a.code && a.code === q) return a;
+    // Code sans zéros initiaux (ex: "158" → "000158")
+    if(a.code && a.code.replace(/^0+/,'') === q.replace(/^0+/,'') && q.length > 0) return a;
+  }
+
+  // 4. Recherche par libellé (partielle, insensible casse)
+  var ql = q.toLowerCase();
+  for(i = 0; i < keys.length; i++){
+    a = arts[keys[i]];
+    if(a.lib && a.lib.toLowerCase().indexOf(ql) !== -1) return a;
   }
   return null;
 }
 
-// ── RECHERCHE PAR LIBELLÉ ─────────────────────────────
-function findArtsByLib(q, mode){
-  var ql = q.toLowerCase();
-  var seen = {}, results = [];
-  var keys = Object.keys(arts);
-  for(var i=0;i<keys.length;i++){
-    var a = arts[keys[i]];
-    if(!a.lib) continue;
-    var lib = a.lib.toLowerCase();
-    var match = (mode==='starts') ? (lib.indexOf(ql)===0) : (lib.indexOf(ql)!==-1);
-    if(match){
-      var uid = a.ean ? ne(a.ean) : ('C'+(a.code||i));
-      if(!seen[uid]){ seen[uid]=true; results.push(a); }
-    }
+function searchArt(q){
+  if(!q){ return; }
+  var a = findArt(q), z = $('art-zone');
+  if(!a){
+    z.innerHTML = '<div class="card" style="border-left:4px solid var(--red);"><strong style="color:var(--red);">Article introuvable</strong><div style="font-size:13px;color:var(--mut);margin-top:6px;">Aucun résultat pour «'+q+'».</div></div>';
+    return;
   }
-  results.sort(function(a,b){ return a.lib.localeCompare(b.lib); });
-  return results;
+  z.innerHTML = renderArtCard(a);
 }
-
-// ── findArt générique (utilisé par la liste de scan) ──
-function findArt(q){
-  if(!q) return null;
-  q = String(q).trim();
-  var isNum = /^[0-9]+$/.test(q);
-  if(isNum) return findArtExact(q);
-  var res = findArtsByLib(q, searchMode);
-  return res.length > 0 ? res[0] : null;
-}
-
-// ── RENDU LISTE DE RÉSULTATS ─────────────────────────
-function renderResultsList(results, q){
-  var h = '<div class="result-count">' + results.length + ' article' + (results.length>1?'s':'') +
-          ' trouv' + (results.length>1?'es':'e') + ' pour "' + q + '"</div>';
-  h += '<div class="results-list">';
-  for(var i=0;i<results.length;i++){
-    var a = results[i];
-    var pv = xpf(a.pv), promo = xpf(a.promo), dp = promo||pv;
-    var ean = a.ean ? ne(a.ean) : '';
-    h += '<div class="result-item" data-art="' + encodeURIComponent(JSON.stringify(a)) + '">' +
-      '<div style="flex:1;min-width:0;">' +
-        '<div class="result-lib">' + a.lib + '</div>' +
-        '<div class="result-meta">Code: ' + (a.code||'--') + (ean?' &bull; EAN: '+ean:'') + '</div>' +
-      '</div>' +
-      (dp ? '<div class="result-price">' + dp + '<span style="font-size:11px;"> XPF</span></div>' : '') +
-    '</div>';
-  }
-  h += '</div>';
-  return h;
-}
-
-// Délégation clic sur résultats
-$('art-zone').addEventListener('click', function(e){
-  var item = e.target.closest ? e.target.closest('.result-item') : null;
-  if(!item && e.target.classList.contains('result-item')) item = e.target;
-  if(item){
-    var a = JSON.parse(decodeURIComponent(item.getAttribute('data-art')));
-    $('art-zone').innerHTML = renderArtCard(a);
-  }
-});
 
 function renderArtCard(a){
   var pv = xpf(a.pv), promo = xpf(a.promo), dp = promo || pv;
@@ -702,7 +619,6 @@ function renderArtCard(a){
   '</div>';
 }
 window.handleAddModal = function(btn){ openAddModal(btn.getAttribute('data-art')); };
-
 
 // ── LISTES ────────────────────────────────────────────
 $('btn-newlist').onclick  = openNewList;
@@ -955,7 +871,7 @@ function buildBiff5Book(rows){
   for(var ri=0;ri<rows.length;ri++){
     var row=rows[ri];
     ws=ws.concat(rec(0x0208, u16(ri).concat(u16(0)).concat(u16(3)).concat(u16(0xFF)).concat(u16(0)).concat([0,0,0,0])));
-    // Col 0: EAN (toujours forcé en texte pour éviter la notation scientifique)
+   // Col 0: EAN (toujours forcé en texte pour éviter la notation scientifique)
     ws[XLSX.utils.encode_cell({ c: 0, r: ri })] = { t: 's', v: String(row[0]), z: '@' };
     // Col 1: Libellé (texte)
     ws=ws.concat(label(ri,1,15,row[1]));
