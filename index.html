@@ -292,6 +292,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--txt);displa
   <div class="send-msg" id="send-msg">Envoi en cours...</div>
 </div>
 
+<canvas id="scan-canvas" style="display:none;"></canvas>
 <div id="toast"></div>
 
 <script>
@@ -1181,37 +1182,132 @@ function sendMail(to, subject, bodyText, attach, aname, cb){
 
 
 function openCam(mode){
-  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ toast('Caméra non supportée','er'); return; }
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
+    toast('Caméra non supportée par ce navigateur','er'); return;
+  }
   camMode = mode;
-  navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}}})
+  navigator.mediaDevices.getUserMedia({
+    video:{ facingMode:{ideal:'environment'}, width:{ideal:1280}, height:{ideal:720} }
+  })
   .then(function(stream){
-    camStream = stream; var v = $('camv'); v.srcObject = stream;
+    camStream = stream;
+    var v = $('camv');
+    v.srcObject = stream;
     $('cam').classList.add('on');
-    camTimer = setInterval(function(){ scanFrame(v); }, 800);
-  }).catch(function(){ toast('Autorisation caméra refusée','er'); });
+    // Attendre que la vidéo soit prête
+    v.onloadedmetadata = function(){
+      v.play();
+      startScanning(v);
+    };
+  })
+  .catch(function(err){
+    toast('Autorisation caméra refusée','er');
+    console.error(err);
+  });
 }
+
 function closeCam(){
   clearInterval(camTimer); camTimer = null;
   if(camStream){ camStream.getTracks().forEach(function(t){ t.stop(); }); camStream = null; }
-  var v = $('camv'); if(v) v.srcObject = null;
+  var v = $('camv'); if(v){ v.srcObject = null; v.onloadedmetadata = null; }
   $('cam').classList.remove('on');
 }
-var barcodeDetector = null;
-if('BarcodeDetector' in window){
-  try{ barcodeDetector = new BarcodeDetector({formats:['ean_13','ean_8','code_128','code_39','upc_a','upc_e','qr_code']}); }catch(e){}
-}
-var lastCode='',lastTime=0;
-function scanFrame(video){
-  if(!video.videoWidth||!video.videoHeight||!barcodeDetector) return;
-  barcodeDetector.detect(video).then(function(barcodes){
-    if(!barcodes.length) return;
-    var code=barcodes[0].rawValue, now=Date.now();
-    if(code&&(code!==lastCode||now-lastTime>2000)){
-      lastCode=code; lastTime=now; closeCam();
-      if(camMode==='scan'){ $('scan-in').value=code; searchArt(code); }
-      else { $('scan-list').value=code; addToCurrentList(code); }
+
+// ── Détection selon plateforme ────────────────────────
+var lastCode = '', lastTime = 0;
+
+function onCodeDetected(code){
+  var now = Date.now();
+  if(code && (code !== lastCode || now - lastTime > 2000)){
+    lastCode = code; lastTime = now;
+    closeCam();
+    if(camMode === 'scan'){
+      $('scan-in').value = code;
+      doSearch(code);
+    } else {
+      $('scan-list').value = code;
+      addToCurrentList(code);
     }
-  }).catch(function(){});
+  }
+}
+
+function startScanning(video){
+  // Méthode 1: BarcodeDetector API (Chrome Android, Chrome desktop)
+  if('BarcodeDetector' in window){
+    try{
+      var bd = new BarcodeDetector({
+        formats:['ean_13','ean_8','code_128','code_39','upc_a','upc_e','qr_code']
+      });
+      camTimer = setInterval(function(){
+        if(!video.videoWidth || !video.videoHeight) return;
+        bd.detect(video).then(function(barcodes){
+          if(barcodes.length > 0) onCodeDetected(barcodes[0].rawValue);
+        }).catch(function(){});
+      }, 600);
+      return;
+    }catch(e){}
+  }
+
+  // Méthode 2: ZXing via canvas (iOS Safari, Firefox, autres)
+  // Chargement dynamique de ZXing si pas déjà chargé
+  if(window._zxingReader){
+    startZxing(video);
+    return;
+  }
+  var s = document.createElement('script');
+  s.src = 'https://unpkg.com/@zxing/library@0.20.0/umd/index.min.js';
+  s.onload = function(){ startZxing(video); };
+  s.onerror = function(){
+    // Fallback: canvas manuel
+    startCanvasScan(video);
+  };
+  document.head.appendChild(s);
+}
+
+function startZxing(video){
+  try{
+    var hints = new Map();
+    var formats = [
+      ZXing.BarcodeFormat.EAN_13,
+      ZXing.BarcodeFormat.EAN_8,
+      ZXing.BarcodeFormat.CODE_128,
+      ZXing.BarcodeFormat.CODE_39,
+      ZXing.BarcodeFormat.UPC_A
+    ];
+    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
+    var reader = new ZXing.MultiFormatReader();
+    reader.setHints(hints);
+    window._zxingReader = reader;
+
+    var canvas = document.createElement('canvas');
+    camTimer = setInterval(function(){
+      if(!video.videoWidth || !video.videoHeight) return;
+      canvas.width  = video.videoWidth;
+      canvas.height = video.videoHeight;
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0);
+      try{
+        var imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        var lum = new ZXing.RGBLuminanceSource(imgData.data, canvas.width, canvas.height);
+        var bmp = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(lum));
+        var result = reader.decode(bmp);
+        if(result) onCodeDetected(result.getText());
+      }catch(e){}
+    }, 500);
+  }catch(e){
+    startCanvasScan(video);
+  }
+}
+
+function startCanvasScan(video){
+  // Fallback minimal: capture frame et utilise BarcodeDetector si dispo
+  // Sinon afficher message
+  toast('Scanner non disponible — saisissez le code manuellement','er');
+  closeCam();
+}
+
+function scanFrame(video){
+  // Gardé pour compatibilité — non utilisé directement
 }
 
 // ── MODALS ────────────────────────────────────────────
