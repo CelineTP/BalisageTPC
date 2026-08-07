@@ -137,6 +137,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--txt);displa
       <input class="si" type="text" id="scan-in" placeholder="Code-barres, code ou libelle..." autocomplete="off" autocorrect="off">
       <button class="bsearch" id="btn-search">&#128269;</button>
       <button class="bcam" id="btn-cam1"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></button>
+      <input type="file" id="cam-inp1" accept="image/*" capture="environment" style="display:none">
     </div>
 
   </div>
@@ -170,6 +171,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--txt);displa
       <input class="si" type="text" id="scan-list" placeholder="Code-barres ou code article..." autocomplete="off" autocorrect="off">
       <button class="bsearch" id="btn-search-list">&#128269;</button>
       <button class="bcam" id="btn-cam2"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></button>
+      <input type="file" id="cam-inp2" accept="image/*" capture="environment" style="display:none">
     </div>
   </div>
   <div id="det-arts" style="margin-bottom:12px;"></div>
@@ -334,22 +336,31 @@ function safeName(s){ return s.replace(/[^a-zA-Z0-9_-]/g, '_').replace(/_+/g, '_
 
 // ── SAUVEGARDE AUTOMATIQUE ────────────────────────────
 // Toutes les données sont sauvegardées immédiatement à chaque modification
+// Fallback mémoire si localStorage indisponible (Safari privé)
+var _memStore = {};
+function lsSet(k,v){
+  try{ localStorage.setItem(k,v); }catch(e){ _memStore[k]=v; }
+}
+function lsGet(k){
+  try{ var v=localStorage.getItem(k); return v!==null?v:(_memStore[k]||null); }
+  catch(e){ return _memStore[k]||null; }
+}
 function saveArts(){
-  try { localStorage.setItem('bp_a', JSON.stringify(arts)); } catch(e){}
+  try { lsSet('bp_a', JSON.stringify(arts)); } catch(e){}
 }
 function saveLists(){
-  try { localStorage.setItem('bp_l', JSON.stringify(lists)); } catch(e){}
+  try { lsSet('bp_l', JSON.stringify(lists)); } catch(e){}
 }
 function saveAll(){ saveArts(); saveLists(); }
 
 function loadAll(){
   try {
-    var a  = localStorage.getItem('bp_a');
-    var l  = localStorage.getItem('bp_l');
-    var sn = localStorage.getItem('bp_sn');
-    var em = localStorage.getItem('bp_email');
-    var sl = localStorage.getItem('bp_sl');
-    var gt = localStorage.getItem('bp_gt');
+    var a  = lsGet('bp_a');
+    var l  = lsGet('bp_l');
+    var sn = lsGet('bp_sn');
+    var em = lsGet('bp_email');
+    var sl = lsGet('bp_sl');
+    var gt = lsGet('bp_gt');
     if(a) arts = JSON.parse(a);
     if(l) lists = JSON.parse(l);
     if(sn){ $('inp-sn').value = sn; $('hdr-sn').textContent = sn; }
@@ -383,10 +394,10 @@ $('btn-back-lists').onclick = function(){ showPg('baliser'); };
 // ── RÉGLAGES ──────────────────────────────────────────
 $('inp-sn').oninput = function(){
   $('hdr-sn').textContent = this.value || 'Mon Magasin';
-  localStorage.setItem('bp_sn', this.value);
+  lsSet('bp_sn', this.value);
 };
 $('inp-email').oninput = function(){
-  localStorage.setItem('bp_email', this.value);
+  lsSet('bp_email', this.value);
 };
 $('btn-logo').onclick = function(){ $('logo-inp').click(); };
 $('logo-inp').onchange = function(){
@@ -394,14 +405,14 @@ $('logo-inp').onchange = function(){
   var r = new FileReader();
   r.onload = function(e){
     storeLogo = e.target.result;
-    localStorage.setItem('bp_sl', storeLogo);
+    lsSet('bp_sl', storeLogo);
     applyLogo(storeLogo);
     toast('Logo importé', 'ok');
   };
   r.readAsDataURL(f);
 };
 $('btn-rml').onclick = function(){
-  localStorage.removeItem('bp_sl');
+  try{localStorage.removeItem('bp_sl');}catch(e){delete _memStore['bp_sl'];};
   storeLogo = BUILTIN_LOGO;
   applyLogo(BUILTIN_LOGO);
   $('logo-inp').value = '';
@@ -426,7 +437,7 @@ function initTokenClient(){
         return;
       }
       googleToken = resp.access_token;
-      localStorage.setItem('bp_gt', googleToken);
+      lsSet('bp_gt', googleToken);
       updateGoogleUI(true);
       toast('Connecté à Google', 'ok');
       // Exécuter l'action en attente si elle existe
@@ -450,7 +461,7 @@ $('btn-google-login').onclick = function(){
 };
 $('btn-google-logout').onclick = function(){
   googleToken = null;
-  localStorage.removeItem('bp_gt');
+  try{localStorage.removeItem('bp_gt');}catch(e){delete _memStore['bp_gt'];};
   if(typeof google !== 'undefined' && google.accounts && google.accounts.oauth2){
     google.accounts.oauth2.revoke(googleToken || '', function(){});
   }
@@ -484,15 +495,32 @@ $('btn-clr').onclick = function(){
 };
 
 function importCSV(file){
+  // Essayer UTF-8 d'abord (standard moderne), puis latin-1 si nécessaire
   var r = new FileReader();
-  r.onload = function(e){ parseCSV(e.target.result, file.name); };
-  r.readAsText(file, 'latin-1');
+  r.onload = function(e){
+    var txt = e.target.result;
+    // Vérifier si le résultat semble valide (pas de caractères corrompus)
+    if(txt && txt.length > 0){
+      parseCSV(txt, file.name);
+    } else {
+      // Réessayer en latin-1
+      var r2 = new FileReader();
+      r2.onload = function(e2){ parseCSV(e2.target.result, file.name); };
+      r2.readAsText(file, 'latin-1');
+    }
+  };
+  r.onerror = function(){
+    var r2 = new FileReader();
+    r2.onload = function(e2){ parseCSV(e2.target.result, file.name); };
+    r2.readAsText(file, 'latin-1');
+  };
+  r.readAsText(file, 'utf-8');
 }
 function parseCSV(txt, fname){
   var lines = txt.split(/\r?\n/).filter(function(l){ return l.trim(); });
   if(lines.length < 2){ toast('Fichier vide ou invalide', 'er'); return; }
   var sep = lines[0].split(';').length > lines[0].split(',').length ? ';' : ',';
-  var hdr = lines[0].split(sep).map(function(h){ return h.trim().toLowerCase().replace(/"/g,'').replace(/\s/g,''); });
+  var hdr = lines[0].split(sep).map(function(h){ return h.trim().toLowerCase().replace(/"/g,'').split(' ').join('').split('\t').join(''); });
   function fc(names){ for(var i=0;i<names.length;i++){ var x=hdr.indexOf(names[i]); if(x!==-1) return x; } return -1; }
   var idx = {
     code:  fc(['code','codearticle']),
@@ -1098,7 +1126,7 @@ function doSend(l, email){
       hideOverlay();
       if(err && err.status === 401){
         googleToken = null;
-        localStorage.removeItem('bp_gt');
+        try{localStorage.removeItem('bp_gt');}catch(e){delete _memStore['bp_gt'];};
         updateGoogleUI(false);
         toast('Session expiree - reconnectez-vous','er');
       } else if(err){
@@ -1181,39 +1209,12 @@ function sendMail(to, subject, bodyText, attach, aname, cb){
 }
 
 
-function openCam(mode){
-  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
-    toast('Caméra non supportée par ce navigateur','er'); return;
-  }
-  camMode = mode;
-  navigator.mediaDevices.getUserMedia({
-    video:{ facingMode:{ideal:'environment'}, width:{ideal:1280}, height:{ideal:720} }
-  })
-  .then(function(stream){
-    camStream = stream;
-    var v = $('camv');
-    v.srcObject = stream;
-    $('cam').classList.add('on');
-    // Attendre que la vidéo soit prête
-    v.onloadedmetadata = function(){
-      v.play();
-      startScanning(v);
-    };
-  })
-  .catch(function(err){
-    toast('Autorisation caméra refusée','er');
-    console.error(err);
-  });
-}
+// ── DÉTECTION PLATEFORME ─────────────────────────────
+var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+            (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
-function closeCam(){
-  clearInterval(camTimer); camTimer = null;
-  if(camStream){ camStream.getTracks().forEach(function(t){ t.stop(); }); camStream = null; }
-  var v = $('camv'); if(v){ v.srcObject = null; v.onloadedmetadata = null; }
-  $('cam').classList.remove('on');
-}
-
-// ── Détection selon plateforme ────────────────────────
+// ── GESTION CAMÉRA ────────────────────────────────────
+var camMode = 'scan', camStream = null, camTimer = null;
 var lastCode = '', lastTime = 0;
 
 function onCodeDetected(code){
@@ -1228,11 +1229,63 @@ function onCodeDetected(code){
       $('scan-list').value = code;
       addToCurrentList(code);
     }
+    toast('Code détecté: ' + code, 'ok');
   }
 }
 
-function startScanning(video){
-  // Méthode 1: BarcodeDetector API (Chrome Android, Chrome desktop)
+$('btn-cam-cls').onclick = closeCam;
+
+$('btn-cam1').onclick = function(){ openCam('scan'); };
+$('btn-cam2').onclick = function(){ openCam('list'); };
+
+// Input file pour iOS (photo → décodage)
+var camInp1 = $('cam-inp1');
+var camInp2 = $('cam-inp2');
+if(camInp1) camInp1.onchange = function(){ if(this.files[0]) decodeImageFile(this.files[0]); this.value=''; };
+if(camInp2) camInp2.onchange = function(){ if(this.files[0]) decodeImageFile(this.files[0]); this.value=''; };
+
+function openCam(mode){
+  camMode = mode;
+
+  // iOS Safari: utiliser input file capture (photo native)
+  if(isIOS){
+    if(mode === 'scan' && camInp1){ camInp1.click(); }
+    else if(camInp2){ camInp2.click(); }
+    return;
+  }
+
+  // Android / PC: flux vidéo en temps réel
+  if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+    toast('Caméra non supportée — saisissez le code manuellement','er');
+    return;
+  }
+  navigator.mediaDevices.getUserMedia({
+    video:{ facingMode:{ideal:'environment'}, width:{ideal:1280}, height:{ideal:720} }
+  })
+  .then(function(stream){
+    camStream = stream;
+    var v = $('camv');
+    v.srcObject = stream;
+    v.play();
+    $('cam').classList.add('on');
+    startVideoScan(v);
+  })
+  .catch(function(err){
+    console.error(err);
+    toast('Autorisation caméra refusée','er');
+  });
+}
+
+function closeCam(){
+  clearInterval(camTimer); camTimer = null;
+  if(camStream){ camStream.getTracks().forEach(function(t){ t.stop(); }); camStream = null; }
+  var v = $('camv');
+  if(v){ v.srcObject = null; v.pause(); }
+  $('cam').classList.remove('on');
+}
+
+// ── SCAN VIDÉO (Android/PC) ──────────────────────────
+function startVideoScan(video){
   if('BarcodeDetector' in window){
     try{
       var bd = new BarcodeDetector({
@@ -1247,68 +1300,107 @@ function startScanning(video){
       return;
     }catch(e){}
   }
-
-  // Méthode 2: ZXing via canvas (iOS Safari, Firefox, autres)
-  // Chargement dynamique de ZXing si pas déjà chargé
-  if(window._zxingReader){
-    startZxing(video);
-    return;
-  }
-  var s = document.createElement('script');
-  s.src = 'https://unpkg.com/@zxing/library@0.20.0/umd/index.min.js';
-  s.onload = function(){ startZxing(video); };
-  s.onerror = function(){
-    // Fallback: canvas manuel
-    startCanvasScan(video);
-  };
-  document.head.appendChild(s);
+  // Fallback canvas sans lib externe
+  startCanvasVideoScan(video);
 }
 
-function startZxing(video){
-  try{
-    var hints = new Map();
-    var formats = [
-      ZXing.BarcodeFormat.EAN_13,
-      ZXing.BarcodeFormat.EAN_8,
-      ZXing.BarcodeFormat.CODE_128,
-      ZXing.BarcodeFormat.CODE_39,
-      ZXing.BarcodeFormat.UPC_A
-    ];
-    hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS, formats);
-    var reader = new ZXing.MultiFormatReader();
-    reader.setHints(hints);
-    window._zxingReader = reader;
-
-    var canvas = document.createElement('canvas');
-    camTimer = setInterval(function(){
-      if(!video.videoWidth || !video.videoHeight) return;
-      canvas.width  = video.videoWidth;
-      canvas.height = video.videoHeight;
-      var ctx = canvas.getContext('2d');
-      ctx.drawImage(video, 0, 0);
-      try{
-        var imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        var lum = new ZXing.RGBLuminanceSource(imgData.data, canvas.width, canvas.height);
-        var bmp = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(lum));
-        var result = reader.decode(bmp);
-        if(result) onCodeDetected(result.getText());
-      }catch(e){}
-    }, 500);
-  }catch(e){
-    startCanvasScan(video);
-  }
-}
-
-function startCanvasScan(video){
-  // Fallback minimal: capture frame et utilise BarcodeDetector si dispo
-  // Sinon afficher message
-  toast('Scanner non disponible — saisissez le code manuellement','er');
+function startCanvasVideoScan(video){
+  // Sans BarcodeDetector et sans ZXing: demander saisie manuelle
+  toast('Scan auto non disponible sur ce navigateur — saisissez le code','er');
   closeCam();
 }
 
-function scanFrame(video){
-  // Gardé pour compatibilité — non utilisé directement
+// ── DÉCODAGE IMAGE (iOS) ──────────────────────────────
+function decodeImageFile(file){
+  // Utiliser BarcodeDetector sur l'image si disponible
+  if('BarcodeDetector' in window){
+    var img = new Image();
+    var url = URL.createObjectURL(file);
+    img.onload = function(){
+      var bd = new BarcodeDetector({
+        formats:['ean_13','ean_8','code_128','code_39','upc_a','upc_e','qr_code']
+      });
+      bd.detect(img).then(function(barcodes){
+        URL.revokeObjectURL(url);
+        if(barcodes.length > 0){
+          onCodeDetected(barcodes[0].rawValue);
+        } else {
+          toast('Code non détecté — réessayez ou saisissez manuellement','er');
+        }
+      }).catch(function(){
+        URL.revokeObjectURL(url);
+        decodeImageCanvas(file);
+      });
+    };
+    img.onerror = function(){ URL.revokeObjectURL(url); decodeImageCanvas(file); };
+    img.src = url;
+    return;
+  }
+  decodeImageCanvas(file);
 }
+
+function decodeImageCanvas(file){
+  // Charger ZXing dynamiquement pour décoder l'image
+  toast('Analyse en cours...', '');
+  var url = URL.createObjectURL(file);
+  
+  function tryZxing(){
+    if(typeof ZXing === 'undefined'){
+      URL.revokeObjectURL(url);
+      toast('Code non décodé — saisissez manuellement','er');
+      return;
+    }
+    try{
+      var img = new Image();
+      img.onload = function(){
+        var canvas = document.createElement('canvas');
+        canvas.width = img.width; canvas.height = img.height;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        try{
+          var hints = new Map();
+          hints.set(ZXing.DecodeHintType.POSSIBLE_FORMATS,[
+            ZXing.BarcodeFormat.EAN_13, ZXing.BarcodeFormat.EAN_8,
+            ZXing.BarcodeFormat.CODE_128, ZXing.BarcodeFormat.CODE_39,
+            ZXing.BarcodeFormat.UPC_A
+          ]);
+          var reader = new ZXing.MultiFormatReader();
+          reader.setHints(hints);
+          var imgData = ctx.getImageData(0,0,canvas.width,canvas.height);
+          var lum = new ZXing.RGBLuminanceSource(imgData.data, canvas.width, canvas.height);
+          var bmp = new ZXing.BinaryBitmap(new ZXing.HybridBinarizer(lum));
+          var result = reader.decode(bmp);
+          URL.revokeObjectURL(url);
+          if(result) onCodeDetected(result.getText());
+          else toast('Code non détecté — réessayez','er');
+        }catch(e){
+          URL.revokeObjectURL(url);
+          toast('Code non détecté — saisissez manuellement','er');
+        }
+      };
+      img.src = url;
+    }catch(e){
+      URL.revokeObjectURL(url);
+      toast('Erreur décodage — saisissez manuellement','er');
+    }
+  }
+
+  if(typeof ZXing !== 'undefined'){
+    tryZxing();
+  } else {
+    var s = document.createElement('script');
+    s.src = 'https://unpkg.com/@zxing/library@0.20.0/umd/index.min.js';
+    s.onload = tryZxing;
+    s.onerror = function(){
+      URL.revokeObjectURL(url);
+      toast('Code non décodé — saisissez manuellement','er');
+    };
+    document.head.appendChild(s);
+  }
+}
+
+function scanFrame(video){} // conservé pour compatibilité
+
 
 // ── MODALS ────────────────────────────────────────────
 function openMod(id){ $(id).classList.add('on'); }
