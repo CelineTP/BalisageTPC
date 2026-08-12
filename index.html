@@ -538,19 +538,19 @@ function parseCSV(txt, fname){
     promo: fc(['prix_promo','prixpromo','promo','coeff']),
     stock: fc(['conso','stock','qtstock']),
     fam:   fc(['libfam','famille','rayon']),
-    stock0: fc(['site0']),
+    stock0: fc(['site0','stock0']),
     capa0:  fc(['capa0']),
-    stock1: fc(['site1']),
+    stock1: fc(['site1','stock1']),
     capa1:  fc(['capa1']),
-    stock2: fc(['site2']),
+    stock2: fc(['site2','stock2']),
     capa2:  fc(['capa2']),
-    stock3: fc(['site3']),
+    stock3: fc(['site3','stock3']),
     capa3:  fc(['capa3']),
-    stock4: fc(['site4']),
+    stock4: fc(['site4','stock4']),
     capa4:  fc(['capa4']),
-    stock5: fc(['site5']),
+    stock5: fc(['site5','stock5']),
     capa5:  fc(['capa5']),
-    stock6: fc(['site6']),
+    stock6: fc(['site6','stock6']),
     capa6:  fc(['capa6'])
   };
   var cnt = 0; arts = {};
@@ -724,15 +724,9 @@ $('art-zone').addEventListener('click', function(e){
 });
 
 function renderArtCard(a){
-  var pv = xpf(a.pv), promo = xpf(a.promo), dp = promo || pv;
+  var pv = xpf(a.pv);
   var sc = a.stock > 10 ? 'sok' : a.stock > 0 ? 'slow' : 'szero';
   var sl = a.stock > 10 ? 'En stock' : a.stock > 0 ? 'Stock faible' : 'Rupture';
-  
-  var promoInfo = '';
-  if(promo && pv){
-    var reduction = Math.round((1 - promo/pv) * 100);
-    promoInfo = '<div style="margin-top:6px;"><span style="text-decoration:line-through;color:var(--mut);font-size:14px;">'+pv+' XPF</span> <span style="background:var(--grn2);color:var(--grn);font-weight:700;padding:3px 10px;border-radius:6px;font-size:13px;">-'+reduction+'%</span></div>';
-  }
   
   var stockBysite = '';
   if(a.sites && a.sites.length > 0){
@@ -745,10 +739,10 @@ function renderArtCard(a){
       var barcol = stock === 0 ? '#E53E3E' : stock/capa < 0.3 ? '#FF6B35' : '#2ECC71';
       stockBysite += '<div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;padding:6px 0;border-bottom:1px solid rgba(0,0,0,.05);">';
       stockBysite += '<span style="flex:1;">'+site.name+'</span>';
-      stockBysite += '<div style="width:80px;background:rgba(0,0,0,.05);border-radius:4px;height:18px;position:relative;overflow:hidden;margin:0 8px;">';
+      stockBysite += '<div style="width:60px;background:rgba(0,0,0,.05);border-radius:4px;height:18px;position:relative;overflow:hidden;margin:0 8px;">';
       if(capa > 0) stockBysite += '<div style="height:100%;width:'+pourcent+'%;background:'+barcol+';transition:width 0.3s;"></div>';
       stockBysite += '</div>';
-      stockBysite += '<span style="text-align:right;min-width:60px;"><strong>'+stock+'</strong>/' + capa + '</span>';
+      stockBysite += '<span style="text-align:right;min-width:65px;font-size:11px;"><span style="color:var(--grn);font-weight:700;">'+stock+'</span> / <span style="color:var(--mut);">'+capa+'</span></span>';
       stockBysite += '</div>';
     }
     stockBysite += '</div>';
@@ -761,8 +755,7 @@ function renderArtCard(a){
       (a.ref?'<div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:3px;">Réf. '+a.ref+'</div>':'')+
     '</div>'+
     '<div class="abody">'+
-      '<div class="pmain">'+(dp ? dp+' XPF' : 'Prix N/D')+'</div>'+
-      promoInfo+
+      '<div class="pmain">'+(pv ? pv+' XPF' : 'Prix N/D')+'</div>'+
       '<div class="ameta">'+
         '<div class="mi"><div class="ml">EAN</div><div class="mv" style="font-size:11px;font-family:monospace;">'+(a.ean||'—')+'</div></div>'+
         '<div class="mi"><div class="ml">Stock global</div><div class="mv '+sc+'">'+a.stock+' — '+sl+'</div></div>'+
