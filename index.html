@@ -535,22 +535,22 @@ function parseCSV(txt, fname){
     ean:   fc(['codebarre','ean','barcode','gencod']),
     ref:   fc(['reference','ref','referencefournisseur']),
     pv:    fc(['prix_vente','prixvente','pv','pvttc','prix']),
-    promo: fc(['prix_promo','prixpromo','promo']),
+    promo: fc(['prix_promo','prixpromo','promo','coeff']),
     stock: fc(['conso','stock','qtstock']),
     fam:   fc(['libfam','famille','rayon']),
-    stock0: fc(['stock0','logiser']),
+    stock0: fc(['site0']),
     capa0:  fc(['capa0']),
-    stock1: fc(['stock1','tpcville']),
+    stock1: fc(['site1']),
     capa1:  fc(['capa1']),
-    stock2: fc(['stock2','tpcpuna']),
+    stock2: fc(['site2']),
     capa2:  fc(['capa2']),
-    stock3: fc(['stock3','tpctrvo']),
+    stock3: fc(['site3']),
     capa3:  fc(['capa3']),
-    stock4: fc(['stock4','tpcpao']),
+    stock4: fc(['site4']),
     capa4:  fc(['capa4']),
-    stock5: fc(['stock5','tpcarue']),
+    stock5: fc(['site5']),
     capa5:  fc(['capa5']),
-    stock6: fc(['stock6','tpcmoorea']),
+    stock6: fc(['site6']),
     capa6:  fc(['capa6'])
   };
   var cnt = 0; arts = {};
@@ -728,15 +728,27 @@ function renderArtCard(a){
   var sc = a.stock > 10 ? 'sok' : a.stock > 0 ? 'slow' : 'szero';
   var sl = a.stock > 10 ? 'En stock' : a.stock > 0 ? 'Stock faible' : 'Rupture';
   
+  var promoInfo = '';
+  if(promo && pv){
+    var reduction = Math.round((1 - promo/pv) * 100);
+    promoInfo = '<div style="margin-top:6px;"><span style="text-decoration:line-through;color:var(--mut);font-size:14px;">'+pv+' XPF</span> <span style="background:var(--grn2);color:var(--grn);font-weight:700;padding:3px 10px;border-radius:6px;font-size:13px;">-'+reduction+'%</span></div>';
+  }
+  
   var stockBysite = '';
   if(a.sites && a.sites.length > 0){
     stockBysite = '<div style="grid-column:1/-1;margin-top:8px;padding-top:8px;border-top:1px solid var(--brd);">';
     stockBysite += '<div class="ml" style="margin-bottom:8px;">Stock par site</div>';
     for(var i=0;i<a.sites.length;i++){
       var site = a.sites[i];
-      stockBysite += '<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid rgba(0,0,0,.05);">';
-      stockBysite += '<span>'+site.name+'</span>';
-      stockBysite += '<span style="text-align:right;"><strong>'+site.stock+'</strong> / '+site.capa+'</span>';
+      var stock = parseInt(site.stock)||0, capa = parseInt(site.capa)||0;
+      var pourcent = capa > 0 ? Math.round((stock/capa)*100) : 0;
+      var barcol = stock === 0 ? '#E53E3E' : stock/capa < 0.3 ? '#FF6B35' : '#2ECC71';
+      stockBysite += '<div style="display:flex;align-items:center;justify-content:space-between;font-size:12px;padding:6px 0;border-bottom:1px solid rgba(0,0,0,.05);">';
+      stockBysite += '<span style="flex:1;">'+site.name+'</span>';
+      stockBysite += '<div style="width:80px;background:rgba(0,0,0,.05);border-radius:4px;height:18px;position:relative;overflow:hidden;margin:0 8px;">';
+      if(capa > 0) stockBysite += '<div style="height:100%;width:'+pourcent+'%;background:'+barcol+';transition:width 0.3s;"></div>';
+      stockBysite += '</div>';
+      stockBysite += '<span style="text-align:right;min-width:60px;"><strong>'+stock+'</strong>/' + capa + '</span>';
       stockBysite += '</div>';
     }
     stockBysite += '</div>';
@@ -750,10 +762,10 @@ function renderArtCard(a){
     '</div>'+
     '<div class="abody">'+
       '<div class="pmain">'+(dp ? dp+' XPF' : 'Prix N/D')+'</div>'+
-      (promo&&pv?'<div style="margin-top:6px;"><span style="text-decoration:line-through;color:var(--mut);font-size:14px;">'+pv+' XPF</span> <span style="background:var(--grn2);color:var(--grn);font-weight:700;padding:3px 10px;border-radius:6px;font-size:13px;">PROMO</span></div>':'')+
+      promoInfo+
       '<div class="ameta">'+
         '<div class="mi"><div class="ml">EAN</div><div class="mv" style="font-size:11px;font-family:monospace;">'+(a.ean||'—')+'</div></div>'+
-        '<div class="mi"><div class="ml">Stock</div><div class="mv '+sc+'">'+a.stock+' — '+sl+'</div></div>'+
+        '<div class="mi"><div class="ml">Stock global</div><div class="mv '+sc+'">'+a.stock+' — '+sl+'</div></div>'+
         (a.fam?'<div class="mi" style="grid-column:1/-1"><div class="ml">Rayon</div><div class="mv" style="font-size:13px;">'+a.fam+'</div></div>':'')+
         stockBysite+
       '</div>'+
