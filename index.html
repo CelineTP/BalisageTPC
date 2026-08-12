@@ -728,12 +728,6 @@ function renderArtCard(a){
   var sc = a.stock > 10 ? 'sok' : a.stock > 0 ? 'slow' : 'szero';
   var sl = a.stock > 10 ? 'En stock' : a.stock > 0 ? 'Stock faible' : 'Rupture';
   
-  var promoInfo = '';
-  if(promo && pv){
-    var reduction = Math.round((1 - promo/pv) * 100);
-    promoInfo = '<div style="margin-top:6px;"><span style="text-decoration:line-through;color:var(--mut);font-size:14px;">'+pv+' XPF</span> <span style="background:var(--grn2);color:var(--grn);font-weight:700;padding:3px 10px;border-radius:6px;font-size:13px;">-'+reduction+'%</span></div>';
-  }
-  
   var stockBysite = '';
   if(a.sites && a.sites.length > 0){
     stockBysite = '<div style="grid-column:1/-1;margin-top:8px;padding-top:8px;border-top:1px solid var(--brd);">';
