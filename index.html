@@ -727,7 +727,7 @@ function renderArtCard(a){
   var pv = xpf(a.pv), promo = xpf(a.promo), dp = promo || pv;
   var sc = a.stock > 10 ? 'sok' : a.stock > 0 ? 'slow' : 'szero';
   var sl = a.stock > 10 ? 'En stock' : a.stock > 0 ? 'Stock faible' : 'Rupture';
-
+  
   var promoInfo = '';
   if(promo && pv){
     var reduction = Math.round((1 - promo/pv) * 100);
