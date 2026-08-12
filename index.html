@@ -155,6 +155,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--txt);displa
       <p>Aucune liste.<br>Creez-en une pour commencer.</p>
     </div>
   </div>
+  
+  <div id="results-search-list" style="display:none; margin-top:12px;">
+    <div class="result-count">Résultats trouvés</div>
+    <div id="search-results-container" class="results-list"></div>
+  </div>
 </div>
 
 <div class="pg" id="pg-detail">
@@ -532,7 +537,21 @@ function parseCSV(txt, fname){
     pv:    fc(['prix_vente','prixvente','pv','pvttc','prix']),
     promo: fc(['prix_promo','prixpromo','promo']),
     stock: fc(['conso','stock','qtstock']),
-    fam:   fc(['libfam','famille','rayon'])
+    fam:   fc(['libfam','famille','rayon']),
+    stock0: fc(['stock0','logiser']),
+    capa0:  fc(['capa0']),
+    stock1: fc(['stock1','tpcville']),
+    capa1:  fc(['capa1']),
+    stock2: fc(['stock2','tpcpuna']),
+    capa2:  fc(['capa2']),
+    stock3: fc(['stock3','tpctrvo']),
+    capa3:  fc(['capa3']),
+    stock4: fc(['stock4','tpcpao']),
+    capa4:  fc(['capa4']),
+    stock5: fc(['stock5','tpcarue']),
+    capa5:  fc(['capa5']),
+    stock6: fc(['stock6','tpcmoorea']),
+    capa6:  fc(['capa6'])
   };
   var cnt = 0; arts = {};
   for(var i = 1; i < lines.length; i++){
@@ -542,7 +561,16 @@ function parseCSV(txt, fname){
       ean:   gs(c,idx.ean),   ref: gs(c,idx.ref),
       pv:    pp(gs(c,idx.pv)), promo: pp(gs(c,idx.promo)),
       stock: parseInt(gs(c,idx.stock)) || 0,
-      fam:   gs(c,idx.fam)
+      fam:   gs(c,idx.fam),
+      sites: [
+        {name: 'Logiser', stock: parseInt(gs(c,idx.stock0)) || 0, capa: parseInt(gs(c,idx.capa0)) || 0},
+        {name: 'TPC Ville', stock: parseInt(gs(c,idx.stock1)) || 0, capa: parseInt(gs(c,idx.capa1)) || 0},
+        {name: 'TPC Puna', stock: parseInt(gs(c,idx.stock2)) || 0, capa: parseInt(gs(c,idx.capa2)) || 0},
+        {name: 'TPC Trvo', stock: parseInt(gs(c,idx.stock3)) || 0, capa: parseInt(gs(c,idx.capa3)) || 0},
+        {name: 'TPC Pao', stock: parseInt(gs(c,idx.stock4)) || 0, capa: parseInt(gs(c,idx.capa4)) || 0},
+        {name: 'TPC Arue', stock: parseInt(gs(c,idx.stock5)) || 0, capa: parseInt(gs(c,idx.capa5)) || 0},
+        {name: 'TPC Moorea', stock: parseInt(gs(c,idx.stock6)) || 0, capa: parseInt(gs(c,idx.capa6)) || 0}
+      ]
     };
     if(!a.code && !a.ean) continue;
     if(a.ean)  arts[ne(a.ean)] = a;
@@ -699,6 +727,21 @@ function renderArtCard(a){
   var pv = xpf(a.pv), promo = xpf(a.promo), dp = promo || pv;
   var sc = a.stock > 10 ? 'sok' : a.stock > 0 ? 'slow' : 'szero';
   var sl = a.stock > 10 ? 'En stock' : a.stock > 0 ? 'Stock faible' : 'Rupture';
+  
+  var stockBysite = '';
+  if(a.sites && a.sites.length > 0){
+    stockBysite = '<div style="grid-column:1/-1;margin-top:8px;padding-top:8px;border-top:1px solid var(--brd);">';
+    stockBysite += '<div class="ml" style="margin-bottom:8px;">Stock par site</div>';
+    for(var i=0;i<a.sites.length;i++){
+      var site = a.sites[i];
+      stockBysite += '<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0;border-bottom:1px solid rgba(0,0,0,.05);">';
+      stockBysite += '<span>'+site.name+'</span>';
+      stockBysite += '<span style="text-align:right;"><strong>'+site.stock+'</strong> / '+site.capa+'</span>';
+      stockBysite += '</div>';
+    }
+    stockBysite += '</div>';
+  }
+  
   return '<div class="ares">'+
     '<div class="ahdr">'+
       '<div class="acode">Code '+(a.code||'—')+'</div>'+
@@ -712,6 +755,7 @@ function renderArtCard(a){
         '<div class="mi"><div class="ml">EAN</div><div class="mv" style="font-size:11px;font-family:monospace;">'+(a.ean||'—')+'</div></div>'+
         '<div class="mi"><div class="ml">Stock</div><div class="mv '+sc+'">'+a.stock+' — '+sl+'</div></div>'+
         (a.fam?'<div class="mi" style="grid-column:1/-1"><div class="ml">Rayon</div><div class="mv" style="font-size:13px;">'+a.fam+'</div></div>':'')+
+        stockBysite+
       '</div>'+
     '</div>'+
     '<div class="aact"><button class="badd" data-art="'+encodeURIComponent(JSON.stringify(a))+'" onclick="handleAddModal(this)">+ Ajouter à une liste</button></div>'+
@@ -825,21 +869,84 @@ btnCam2.onclick       = function(){ openCam('list'); };
 
 function addToCurrentList(q){
   if(!q || !curList) return;
-  var a = findArt(q), inp = $('scan-list');
-  if(!a){ toast('Article introuvable pour «'+q+'»', 'er'); return; }
+  var inp = $('scan-list');
+  var exact = findArtExact(q);
+  if(exact){
+    var l = lists.find(function(x){ return x.id===curList; });
+    if(!l) return;
+    if(l.arts.find(function(x){ return (x.code&&x.code===exact.code)||(x.ean&&x.ean===exact.ean); })){
+      toast('Déjà dans la liste'); inp.value=''; return;
+    }
+    var ac = JSON.parse(JSON.stringify(exact)); ac.qty = 1;
+    l.arts.push(ac);
+    saveLists();
+    inp.value = '';
+    renderDetArts();
+    $('det-info').textContent = l.date + ' · ' + l.arts.length + ' article(s)';
+    toast(exact.lib.substring(0,30) + '…', 'ok');
+    return;
+  }
+  // Recherche par libellé
+  var results = findArtsByLib(q, 'contains');
+  if(results.length === 0){
+    toast('Article introuvable pour «'+q+'»', 'er');
+    return;
+  }
+  if(results.length === 1){
+    var a = results[0];
+    var l = lists.find(function(x){ return x.id===curList; });
+    if(!l) return;
+    if(l.arts.find(function(x){ return (x.code&&x.code===a.code)||(x.ean&&x.ean===a.ean); })){
+      toast('Déjà dans la liste'); inp.value=''; return;
+    }
+    var ac = JSON.parse(JSON.stringify(a)); ac.qty = 1;
+    l.arts.push(ac);
+    saveLists();
+    inp.value = '';
+    renderDetArts();
+    $('det-info').textContent = l.date + ' · ' + l.arts.length + ' article(s)';
+    toast(a.lib.substring(0,30) + '…', 'ok');
+    return;
+  }
+  // Afficher les résultats cliquables
+  renderSearchResultsInBaliser(results, q);
+}
+
+function renderSearchResultsInBaliser(results, q){
+  var h = '';
+  for(var i=0;i<results.length;i++){
+    var a = results[i];
+    var pv = xpf(a.pv), promo = xpf(a.promo), dp = promo||pv;
+    var ean = a.ean ? ne(a.ean) : '';
+    h += '<div class="result-item" style="display:flex;align-items:center;gap:12px;">' +
+      '<div style="flex:1;min-width:0;">' +
+        '<div class="result-lib">' + a.lib + '</div>' +
+        '<div class="result-meta">Code: ' + (a.code||'--') + (ean?' &bull; EAN: '+ean:'') + '</div>' +
+      '</div>' +
+      (dp ? '<div class="result-price">' + dp + '<span style="font-size:11px;"> XPF</span></div>' : '') +
+      '<button class="btn bG bSm" onclick="addArtToCurrentList(this)" data-art="'+encodeURIComponent(JSON.stringify(a))+'">Ajouter</button>' +
+    '</div>';
+  }
+  $('search-results-container').innerHTML = h;
+  $('results-search-list').style.display = 'block';
+  $('scan-list').value = '';
+}
+
+window.addArtToCurrentList = function(btn){
+  var a = JSON.parse(decodeURIComponent(btn.getAttribute('data-art')));
   var l = lists.find(function(x){ return x.id===curList; });
   if(!l) return;
   if(l.arts.find(function(x){ return (x.code&&x.code===a.code)||(x.ean&&x.ean===a.ean); })){
-    toast('Déjà dans la liste'); inp.value=''; return;
+    toast('Déjà dans la liste'); return;
   }
   var ac = JSON.parse(JSON.stringify(a)); ac.qty = 1;
   l.arts.push(ac);
   saveLists();
-  inp.value = '';
   renderDetArts();
   $('det-info').textContent = l.date + ' · ' + l.arts.length + ' article(s)';
   toast(a.lib.substring(0,30) + '…', 'ok');
-}
+  $('results-search-list').style.display = 'none';
+};
 
 function renderDetArts(){
   var l = lists.find(function(x){ return x.id===curList; });
