@@ -237,11 +237,31 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--txt);displa
     </div>
   </div>
   <div class="card">
+    <div class="ctit">Promotions</div>
+    <div class="sr">
+      <div class="si2" style="background:var(--grn2);">🏷️</div>
+      <div style="flex:1;"><div class="slb">Importer promotions</div><div class="sds">code, pv, prix_promo, date_debut, date_fin</div></div>
+      <button class="btn bP bSm" id="btn-promo-imp">Importer</button>
+      <input type="file" id="promo-inp" accept=".csv" style="display:none">
+    </div>
+    <div id="imp-promo-st" style="font-size:13px;color:var(--mut);padding-top:8px;display:none;"></div>
+    <div class="sr">
+      <div class="si2" style="background:var(--red2);">&#128465;</div>
+      <div style="flex:1;"><div class="slb">Effacer les promotions</div><div class="sds">Supprimer toutes les promotions</div></div>
+      <button class="btn bD bSm" id="btn-clr-promo">Effacer</button>
+    </div>
+  </div>
+  <div class="card">
     <div class="ctit">Format CSV attendu</div>
     <code style="font-size:11px;color:var(--mut);line-height:1.8;display:block;background:var(--bg);padding:10px;border-radius:8px;">
       code;libelle;codebarre;prix_vente;prix_promo;conso<br>
       000158;EGOUTTOIR 12;800083701526;1890;;5
     </code>
+    <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--brd);font-size:12px;color:var(--mut);">
+      <strong>Promotions (optionnel)</strong><br>
+      code;pv;prix_promo;date_debut;date_fin<br>
+      <code style="color:var(--mut);font-size:11px;">000158;1890;999;01/08/2026;31/08/2026</code>
+    </div>
   </div>
   <div class="card" style="background:var(--navy);color:#fff;">
     <div style="font-size:13px;font-weight:700;">Balisage TPC v3.5</div>
@@ -501,6 +521,95 @@ $('btn-clr').onclick = function(){
   toast('Stock effacé');
 };
 
+// ── IMPORT PROMOTIONS ─────────────────────────────────
+var promos = {};
+function savePromos(){ lsSet('bp_promos', JSON.stringify(promos)); }
+function loadPromos(){ 
+  try { 
+    var d = lsGet('bp_promos'); 
+    promos = d ? JSON.parse(d) : {}; 
+  } catch(e) { 
+    promos = {}; 
+  } 
+}
+
+$('btn-promo-imp').onclick = function(){ $('promo-inp').click(); };
+$('promo-inp').onchange = function(){ if(this.files[0]) importPromo(this.files[0]); this.value = ''; };
+$('btn-clr-promo').onclick = function(){
+  if(!confirm('Effacer toutes les promotions ?')) return;
+  promos = {}; savePromos();
+  var s = $('imp-promo-st'); s.textContent = ''; s.style.display = 'none';
+  toast('Promotions effacées');
+};
+
+function importPromo(file){
+  var r = new FileReader();
+  r.onload = function(e){
+    var txt = e.target.result;
+    if(txt && txt.length > 0){
+      parsePromo(txt, file.name);
+    } else {
+      var r2 = new FileReader();
+      r2.onload = function(e2){ parsePromo(e2.target.result, file.name); };
+      r2.readAsText(file, 'ISO-8859-1');
+    }
+  };
+  r.readAsText(file, 'UTF-8');
+}
+
+function parsePromo(txt, fname){
+  var lines = txt.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  if(lines.length < 2) { toast('Fichier vide ou invalide'); return; }
+  
+  var head = lines[0].split(';').map(h => h.trim().toLowerCase());
+  var fc = function(aliases){ for(var i=0;i<head.length;i++) if(aliases.indexOf(head[i])>=0) return i; return -1; };
+  
+  var idx = {
+    code:     fc(['code','codearticle']),
+    pv:       fc(['pv','prix_vente','prix']),
+    promo:    fc(['prix_promo','promo']),
+    dateDebut: fc(['date_debut','date_debut','datestart','datedebut']),
+    dateFin:  fc(['date_fin','datefin','dateend'])
+  };
+  
+  console.log('Colonnes trouvées:', idx, 'En-têtes:', head);
+  
+  if(idx.code < 0 || idx.pv < 0 || idx.promo < 0) { 
+    toast('Colonnes manquantes (code, pv, prix_promo requises)'); 
+    console.log('Erreur: colonnes manquantes', idx);
+    return; 
+  }
+  
+  promos = {};
+  var cnt = 0;
+  for(var i=1;i<lines.length;i++){
+    var parts = lines[i].split(';').map(p => p.trim());
+    var code = parts[idx.code];
+    if(!code) continue;
+    
+    var obj = {
+      pv: parseFloat(parts[idx.pv]) || 0,
+      promo: parseFloat(parts[idx.promo]) || 0,
+      dateDebut: idx.dateDebut >= 0 ? parts[idx.dateDebut] : null,
+      dateFin: idx.dateFin >= 0 ? parts[idx.dateFin] : null
+    };
+    
+    console.log('Promo trouvée:', code, obj);
+    
+    if(obj.promo > 0) {
+      promos[code] = obj;
+      cnt++;
+    }
+  }
+  
+  console.log('Promos finales:', promos);
+  savePromos(); loadPromos();
+  var s = $('imp-promo-st');
+  s.textContent = '✓ ' + cnt + ' promo(s) importée(s)';
+  s.style.display = 'block';
+  toast(cnt + ' promo(s) chargée(s)');
+}
+
 function importCSV(file){
   // Essayer UTF-8 d'abord (standard moderne), puis latin-1 si nécessaire
   var r = new FileReader();
@@ -728,6 +837,44 @@ function renderArtCard(a){
   var sc = a.stock > 10 ? 'sok' : a.stock > 0 ? 'slow' : 'szero';
   var sl = a.stock > 10 ? 'En stock' : a.stock > 0 ? 'Stock faible' : 'Rupture';
   
+  // Vérifier si une promo est active
+  var promoInfo = '';
+  var priceDisplay = pv;
+  
+  console.log('Article:', a.code, 'Promos disponibles:', Object.keys(promos));
+  
+  if(promos[a.code]){
+    console.log('Promo trouvée pour', a.code, promos[a.code]);
+    var p = promos[a.code];
+    var isActive = true;
+    
+    // Vérifier les dates si elles existent
+    if(p.dateDebut || p.dateFin){
+      var today = new Date();
+      today.setHours(0,0,0,0);
+      
+      if(p.dateDebut){
+        var dd = parseDate(p.dateDebut);
+        if(dd && dd > today) isActive = false;
+      }
+      if(p.dateFin && isActive){
+        var df = parseDate(p.dateFin);
+        if(df && df < today) isActive = false;
+      }
+    }
+    
+    console.log('Promo active?', isActive);
+    
+    // Afficher la promo si active
+    if(isActive && p.promo > 0){
+      var reduction = Math.round((1 - p.promo/pv) * 100);
+      promoInfo = '<div style="margin-top:6px;"><span style="text-decoration:line-through;color:var(--mut);font-size:13px;">'+pv+' XPF</span> <span style="background:var(--org2);color:var(--org);font-weight:700;margin-left:8px;padding:4px 12px;border-radius:6px;font-size:14px;">'+xpf(p.promo)+' XPF</span></div>';
+      priceDisplay = xpf(p.promo);
+    }
+  } else {
+    console.log('Pas de promo pour', a.code);
+  }
+  
   var stockBysite = '';
   if(a.sites && a.sites.length > 0){
     stockBysite = '<div style="grid-column:1/-1;margin-top:8px;padding-top:8px;border-top:1px solid var(--brd);">';
@@ -755,7 +902,8 @@ function renderArtCard(a){
       (a.ref?'<div style="font-size:11px;color:rgba(255,255,255,.5);margin-top:3px;">Réf. '+a.ref+'</div>':'')+
     '</div>'+
     '<div class="abody">'+
-      '<div class="pmain">'+(pv ? pv+' XPF' : 'Prix N/D')+'</div>'+
+      '<div class="pmain">'+priceDisplay+' XPF</div>'+
+      promoInfo+
       '<div class="ameta">'+
         '<div class="mi"><div class="ml">EAN</div><div class="mv" style="font-size:11px;font-family:monospace;">'+(a.ean||'—')+'</div></div>'+
         '<div class="mi"><div class="ml">Stock global</div><div class="mv '+sc+'">'+a.stock+' — '+sl+'</div></div>'+
@@ -765,6 +913,23 @@ function renderArtCard(a){
     '</div>'+
     '<div class="aact"><button class="badd" data-art="'+encodeURIComponent(JSON.stringify(a))+'" onclick="handleAddModal(this)">+ Ajouter à une liste</button></div>'+
   '</div>';
+}
+
+function parseDate(dateStr){
+  // Essayer les formats courants: DD/MM/YYYY, DD-MM-YYYY, YYYY-MM-DD
+  if(!dateStr) return null;
+  var parts;
+  if(dateStr.indexOf('/') > 0){
+    parts = dateStr.split('/');
+    if(parts.length === 3) return new Date(parts[2], parts[1]-1, parts[0]);
+  } else if(dateStr.indexOf('-') > 0){
+    parts = dateStr.split('-');
+    if(parts.length === 3){
+      if(parts[0].length === 4) return new Date(parts[0], parts[1]-1, parts[2]); // YYYY-MM-DD
+      else return new Date(parts[2], parts[1]-1, parts[0]); // DD-MM-YYYY
+    }
+  }
+  return null;
 }
 window.handleAddModal = function(btn){ openAddModal(btn.getAttribute('data-art')); };
 
@@ -1510,6 +1675,7 @@ document.querySelectorAll('.mov').forEach(function(o){
 
 // ── INIT ──────────────────────────────────────────────
 loadAll();
+loadPromos();
 // Tenter d'initialiser Google après chargement de la lib
 setTimeout(initTokenClient, 1500);
 
