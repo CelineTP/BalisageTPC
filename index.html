@@ -130,9 +130,6 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--txt);displa
 
 <div id="main">
 
-<!-- Champ caché pour recevoir la saisie du lecteur RFID -->
-<input type="text" id="badge-input" style="position:absolute;left:-9999px;width:1px;height:1px;" autocomplete="off">
-
 <div class="pg on" id="pg-consulter">
   <div class="szn">
     <div class="slbl">Rechercher un article</div>
@@ -148,13 +145,6 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--txt);displa
 </div>
 
 <div class="pg" id="pg-baliser">
-  <div id="badge-display" style="background:var(--grn2);border-left:4px solid var(--grn);padding:12px;margin-bottom:12px;border-radius:6px;display:none;">
-    <div style="font-size:12px;color:var(--mut);">Utilisateur</div>
-    <div style="font-size:15px;font-weight:700;color:var(--grn);margin-top:2px;" id="badge-text"></div>
-  </div>
-  <div id="badge-error" style="background:var(--red2);border-left:4px solid var(--red);padding:12px;margin-bottom:12px;border-radius:6px;display:none;">
-    <div style="font-size:12px;color:var(--mut);">⚠️ Veuillez scanner votre badge pour accéder à Balisage</div>
-  </div>
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
     <div style="font-size:18px;font-weight:700;">Listes de balisage</div>
     <button class="btn bP bSm" id="btn-newlist">+ Nouvelle</button>
@@ -190,8 +180,6 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--txt);displa
     </div>
   </div>
   <div id="det-arts" style="margin-bottom:12px;"></div>
-  <!-- Input file pour caméra badge (iOS) -->
-  <input type="file" id="cam-inp-badge" accept="image/*" capture="environment" style="display:none">
   <div style="display:flex;flex-direction:column;gap:10px;">
     <button class="btn bG bB" id="btn-send-gmail">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,12 2,6"/></svg>
@@ -318,18 +306,6 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--txt);displa
   </div>
 </div>
 
-<div class="mov" id="m-badge">
-  <div class="mod" style="max-width:400px;text-align:center;">
-    <div class="mhdl"></div>
-    <div class="mtit">🔑 Authentification</div>
-    <div style="padding:20px;text-align:center;color:var(--mut);line-height:1.8;">
-      <div style="font-size:14px;margin-bottom:16px;">Veuillez <strong>scanner votre badge</strong> pour continuer</div>
-      <div id="badge-modal-display" style="background:var(--bg);padding:12px;border-radius:6px;font-size:13px;color:var(--txt);font-weight:600;min-height:20px;">En attente...</div>
-      <button class="btn bP" style="margin-top:16px;width:100%;" id="btn-badge-cam">📷 Scannez le badge</button>
-    </div>
-  </div>
-</div>
-
 <div id="cam">
   <video id="camv" autoplay playsinline muted style="width:100%;flex:1;object-fit:cover;"></video>
   <div class="cctrl">
@@ -438,13 +414,7 @@ function goSec(pg, nb){
 }
 
 $('nb-consulter').onclick = function(){ showPg('consulter'); };
-$('nb-baliser').onclick   = function(){ 
-  if(!badgeActuel){
-    toast('Veuillez scanner votre badge pour accéder à Balisage', 'er');
-    return;
-  }
-  showPg('baliser'); 
-};
+$('nb-baliser').onclick   = function(){ showPg('baliser'); };
 $('nb-reglages').onclick  = function(){ showPg('reglages'); };
 $('btn-back-lists').onclick = function(){ showPg('baliser'); };
 
@@ -563,76 +533,6 @@ function loadPromos(){
   } 
 }
 
-// ── BADGES & EMPLOYÉS ─────────────────────────────────
-var employes = {};
-var badgeActuel = null;
-
-function saveBadge(){ lsSet('bp_badge', badgeActuel); }
-function loadBadge(){ badgeActuel = lsGet('bp_badge') || null; }
-
-function loadEmployes(){
-  var sheetId = '15eThMfP7ia212bGrBbmVMgAErI3OKAtlAAk--yLu0mY';
-  var url = 'https://docs.google.com/spreadsheets/d/' + sheetId + '/export?format=csv';
-  
-  fetch(url)
-    .then(r => r.text())
-    .then(txt => {
-      try {
-        var lines = txt.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-        employes = {};
-        for(var i = 1; i < lines.length; i++){
-          var parts = lines[i].split(',').map(p => p.trim());
-          var badge = parts[0];
-          var nom = parts[1];
-          if(badge && nom) employes[badge] = nom;
-        }
-        console.log('Employés chargés:', employes);
-      } catch(e){
-        console.error('Erreur parsing CSV employés:', e);
-      }
-    })
-    .catch(err => console.error('Erreur fetch employés:', err));
-}
-
-function updateBadgeDisplay(){
-  var disp = $('badge-display');
-  var err = $('badge-error');
-  
-  if(badgeActuel && employes[badgeActuel]){
-    disp.style.display = 'block';
-    err.style.display = 'none';
-    $('badge-text').textContent = employes[badgeActuel] + ' (Badge: ' + badgeActuel + ')';
-  } else if(badgeActuel){
-    disp.style.display = 'block';
-    err.style.display = 'none';
-    $('badge-text').textContent = 'Badge: ' + badgeActuel + ' (Non trouvé)';
-  } else {
-    disp.style.display = 'none';
-    err.style.display = 'block';
-  }
-}
-
-// Écouter la saisie du badge (lecteur RFID)
-$('badge-input').addEventListener('keypress', function(e){
-  if(e.key === 'Enter'){
-    badgeActuel = this.value.trim();
-    saveBadge();
-    updateBadgeDisplay();
-    
-    // Mettre à jour la modal si elle est ouverte
-    var empName = employes[badgeActuel] ? employes[badgeActuel] : 'Badge non trouvé';
-    $('badge-modal-display').textContent = '✓ ' + empName;
-    
-    // Fermer la modal après 1 seconde
-    setTimeout(function(){
-      closeMod('m-badge');
-    }, 1000);
-    
-    this.value = '';
-    console.log('Badge scanné:', badgeActuel);
-  }
-});
-
 $('btn-promo-imp').onclick = function(){ $('promo-inp').click(); };
 $('promo-inp').onchange = function(){ if(this.files[0]) importPromo(this.files[0]); this.value = ''; };
 $('btn-clr-promo').onclick = function(){
@@ -672,8 +572,11 @@ function parsePromo(txt, fname){
     dateFin:  fc(['date_fin','datefin','dateend'])
   };
   
+  console.log('Colonnes trouvées:', idx, 'En-têtes:', head);
+  
   if(idx.code < 0 || idx.pv < 0 || idx.promo < 0) { 
     toast('Colonnes manquantes (code, pv, prix_promo requises)'); 
+    console.log('Erreur: colonnes manquantes', idx);
     return; 
   }
   
@@ -691,12 +594,15 @@ function parsePromo(txt, fname){
       dateFin: idx.dateFin >= 0 ? parts[idx.dateFin] : null
     };
     
+    console.log('Promo trouvée:', code, obj);
+    
     if(obj.promo > 0) {
       promos[code] = obj;
       cnt++;
     }
   }
   
+  console.log('Promos finales:', promos);
   savePromos(); loadPromos();
   var s = $('imp-promo-st');
   s.textContent = '✓ ' + cnt + ' promo(s) importée(s)';
@@ -935,7 +841,10 @@ function renderArtCard(a){
   var promoInfo = '';
   var priceDisplay = pv;
   
+  console.log('Article:', a.code, 'Promos disponibles:', Object.keys(promos));
+  
   if(promos[a.code]){
+    console.log('Promo trouvée pour', a.code, promos[a.code]);
     var p = promos[a.code];
     var isActive = true;
     
@@ -954,12 +863,16 @@ function renderArtCard(a){
       }
     }
     
+    console.log('Promo active?', isActive);
+    
     // Afficher la promo si active
     if(isActive && p.promo > 0){
       var reduction = Math.round((1 - p.promo/pv) * 100);
       promoInfo = '<div style="margin-top:6px;"><span style="text-decoration:line-through;color:var(--mut);font-size:13px;">'+pv+' XPF</span> <span style="background:var(--org2);color:var(--org);font-weight:700;margin-left:8px;padding:4px 12px;border-radius:6px;font-size:14px;">'+xpf(p.promo)+' XPF</span></div>';
       priceDisplay = xpf(p.promo);
     }
+  } else {
+    console.log('Pas de promo pour', a.code);
   }
   
   var stockBysite = '';
@@ -1274,13 +1187,7 @@ function buildXLS(l){
   var fname = safeName(l.name) + '_' + dateFile + '.xls';
 
   // Construire les données
-  var empName = badgeActuel && employes[badgeActuel] ? employes[badgeActuel] : 'Inconnu';
-  var rows = [
-    ['Utilisateur', empName],
-    ['Badge', badgeActuel || '—'],
-    [''],
-    ['Code-barre','Libell\u00e9','Quantit\u00e9']
-  ];
+  var rows = [['Code-barre','Libell\u00e9','Quantit\u00e9']];
   l.arts.forEach(function(a){
     // EAN en priorité, sinon code article
     var ean = a.ean ? ne(a.ean) : (a.code ? String(a.code) : '');
@@ -1338,7 +1245,7 @@ function buildBiff5Book(rows){
   // BOF worksheet
   ws=ws.concat(rec(0x0809,[0x00,0x06,0x10,0x00,0x0A,0x54,0xCD,0x07]));
   // DIMENSIONS
-  ws=ws.concat(rec(0x0200, u16(0).concat(u16(rows.length)).concat(u16(0)).concat(u16(Math.max(3, rows[0].length))).concat(u16(0))));
+  ws=ws.concat(rec(0x0200, u16(0).concat(u16(rows.length)).concat(u16(0)).concat(u16(3)).concat(u16(0))));
   // Cellules
   for(var ri=0;ri<rows.length;ri++){
     var row=rows[ri];
@@ -1470,11 +1377,6 @@ $('btn-export-xls').onclick = function(){
   var url = URL.createObjectURL(r.blob);
   var a = document.createElement('a'); a.href=url; a.download=r.name; a.click();
   URL.revokeObjectURL(url);
-  // Réinitialiser le badge après export
-  badgeActuel = null;
-  saveBadge();
-  updateBadgeDisplay();
-  $('badge-input').focus();
   toast('XLS telecharge: '+r.name,'ok');
 };
 
@@ -1514,11 +1416,6 @@ function doSend(l, email){
         lists = lists.filter(function(x){ return x.id !== curList; });
         saveLists();
         curList = null;
-        // Réinitialiser le badge après export
-        badgeActuel = null;
-        saveBadge();
-        updateBadgeDisplay();
-        $('badge-input').focus();
         renderLists(); updBdg();
         showPg('baliser');
       }
@@ -1610,32 +1507,13 @@ function onCodeDetected(code){
   if(code && (code !== lastCode || now - lastTime > 2000)){
     lastCode = code; lastTime = now;
     closeCam();
-    
     if(camMode === 'scan'){
       $('scan-in').value = code;
       doSearch(code);
-    } else if(camMode === 'list'){
+    } else {
       $('scan-list').value = code;
       addToCurrentList(code);
-    } else if(camMode === 'badge'){
-      // Mode badge: remplir le badge et mettre à jour
-      badgeActuel = code.trim();
-      saveBadge();
-      updateBadgeDisplay();
-      
-      // Mettre à jour la modal
-      var empName = employes[badgeActuel] ? employes[badgeActuel] : 'Badge non trouvé';
-      $('badge-modal-display').textContent = '✓ ' + empName;
-      
-      // Fermer la modal après 1 seconde
-      setTimeout(function(){
-        closeMod('m-badge');
-      }, 1000);
-      
-      toast('Badge scanné: ' + code, 'ok');
-      return;
     }
-    
     toast('Code détecté: ' + code, 'ok');
   }
 }
@@ -1644,25 +1522,19 @@ $('btn-cam-cls').onclick = closeCam;
 
 $('btn-cam1').onclick = function(){ openCam('scan'); };
 $('btn-cam2').onclick = function(){ openCam('list'); };
-$('btn-badge-cam').onclick = function(){ openCam('badge'); };
 
 // Input file pour iOS (photo → décodage)
 var camInp1 = $('cam-inp1');
 var camInp2 = $('cam-inp2');
-var camInpBadge = $('cam-inp-badge');
 if(camInp1) camInp1.onchange = function(){ if(this.files[0]) decodeImageFile(this.files[0]); this.value=''; };
 if(camInp2) camInp2.onchange = function(){ if(this.files[0]) decodeImageFile(this.files[0]); this.value=''; };
-if(camInpBadge) camInpBadge.onchange = function(){ if(this.files[0]) decodeImageFile(this.files[0]); this.value=''; };
 
 function openCam(mode){
   camMode = mode;
 
   // iOS Safari: utiliser l'input file natif (le plus fiable)
   if(isIOS){
-    var inp;
-    if(mode === 'scan') inp = $('cam-inp1');
-    else if(mode === 'list') inp = $('cam-inp2');
-    else if(mode === 'badge') inp = $('cam-inp-badge');
+    var inp = (mode === 'scan') ? $('cam-inp1') : $('cam-inp2');
     if(inp){ inp.value=''; inp.click(); }
     return;
   }
@@ -1804,19 +1676,6 @@ document.querySelectorAll('.mov').forEach(function(o){
 // ── INIT ──────────────────────────────────────────────
 loadAll();
 loadPromos();
-loadBadge();
-loadEmployes();
-updateBadgeDisplay();
-// Focus sur le champ badge pour écouter le lecteur RFID
-$('badge-input').focus();
-
-// Ouvrir modal badge si pas de badge en cache
-setTimeout(function(){
-  if(!badgeActuel){
-    openMod('m-badge');
-  }
-}, 500);
-
 // Tenter d'initialiser Google après chargement de la lib
 setTimeout(initTokenClient, 1500);
 
