@@ -625,17 +625,13 @@ function loadEmployes(){
   // Charger depuis localStorage (local au téléphone)
   try {
     var d = lsGet('bp_badges_locaux');
-    badgesLocaux = d ? d : {};
+    badgesLocaux = d ? JSON.parse(d) : {};
     console.log('Badges locaux chargés:', badgesLocaux);
     updateEmployesList();
   } catch(e){
     console.error('Erreur chargement badges:', e);
     badgesLocaux = {};
   }
-}
-
-function saveBadgesLocaux(){
-  lsSet('bp_badges_locaux', badgesLocaux);
 }
 
 function addBadgeLocal(badge, nom, matricule, commentaire){
@@ -800,24 +796,6 @@ $('badge-input').addEventListener('keypress', function(e){
 var badgesLocaux = {}; // {badge: nom}
 
 function saveBadgesLocaux(){ lsSet('bp_badges_locaux', JSON.stringify(badgesLocaux)); }
-function loadBadgesLocaux(){ 
-  try { 
-    var d = lsGet('bp_badges_locaux'); 
-    badgesLocaux = d ? JSON.parse(d) : {}; 
-  } catch(e) { 
-    badgesLocaux = {}; 
-  } 
-}
-
-function addBadgeLocal(badge, nom){
-  if(badgesLocaux[badge]){
-    console.log('Badge existe déjà:', badge);
-    return false;
-  }
-  badgesLocaux[badge] = nom;
-  saveBadgesLocaux();
-  return true;
-}
 
 function renderBadgesLocaux(){
   var cont = $('badges-locaux-list');
