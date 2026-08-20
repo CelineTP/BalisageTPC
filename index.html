@@ -270,6 +270,11 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--txt);displa
     <div style="font-size:11px;color:var(--mut);margin-top:10px;padding-top:10px;border-top:1px solid var(--brd);">
       Ajoutés localement lors du scan. Synchronisés au premier envoi de chaque semaine.
     </div>
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+      <button class="btn bG bSm" onclick="exportBadgesLocal()">📥 Télécharger badges</button>
+      <button class="btn bN bSm" onclick="importBadgesFromFile()">📤 Importer badges</button>
+      <input type="file" id="badges-import-file" accept=".csv,.xlsx,.xls" style="display:none;">
+    </div>
   </div>
 
   <div class="card">
@@ -2211,28 +2216,46 @@ function closeCam(){
 
 // ── AJOUTER EMPLOYÉ DEPUIS RÉGLAGES ───────────────────
 function openCamForBadgeAdd(){
+  console.log('📱 Ouverture caméra mode badge-add');
+  
+  // Nettoyer les badges du statut
+  $('add-emp-badge-code').textContent = '—';
+  $('add-emp-badge-status').style.display = 'none';
+  
   camMode = 'badge-add';
   openCam('badge-add');
 }
 
 function registerEmployeeFromSettings(){
+  console.log('🔍 registerEmployeeFromSettings appelée');
+  
   var nom = $('add-emp-nom').value.trim();
   var matricule = $('add-emp-matricule').value.trim();
   var commentaire = $('add-emp-commentaire').value.trim();
   var badgeCode = $('add-emp-badge-code').textContent.trim();
   
+  console.log('Données saisies:', {nom, matricule, commentaire, badgeCode});
+  
   if(!nom || !matricule || !badgeCode || badgeCode === '—'){
+    console.log('❌ Validation échouée - champs manquants');
     toast('Remplissez tous les champs et scannez un badge','er');
     return;
   }
   
+  console.log('✅ Validation OK - ajout du badge');
+  
   // Ajouter le badge localement
   var nouveau = addBadgeLocal(badgeCode, nom, matricule, commentaire);
   
+  console.log('Résultat addBadgeLocal:', nouveau);
+  
   if(!nouveau){
+    console.log('❌ Badge déjà existant');
     toast('Ce badge existe déjà','er');
     return;
   }
+  
+  console.log('✅ Badge ajouté avec succès');
   
   // Réinitialiser les champs
   $('add-emp-nom').value = '';
@@ -2241,10 +2264,15 @@ function registerEmployeeFromSettings(){
   $('add-emp-badge-code').textContent = '—';
   $('add-emp-badge-status').style.display = 'none';
   
-  toast('Employé enregistré!','ok');
+  toast('✅ Employé enregistré!','ok');
   
   // Mettre à jour l'affichage des employés
   updateEmployesList();
+  
+  // Afficher la liste mise à jour
+  renderBadgesLocaux();
+  
+  console.log('badgesLocaux actuel:', badgesLocaux);
   
   // Vérifier si on doit exporter cette semaine
   checkAndExportBadgesThisWeek();
@@ -2268,7 +2296,96 @@ function checkAndExportBadgesThisWeek(){
   }
 }
 
-// ── SCAN VIDÉO Android/Chrome ─────────────────────────
+// ── IMPORT/EXPORT BADGES LOCAL ─────────────────────────
+
+function exportBadgesLocal(){
+  console.log('📥 Export badges locaux');
+  
+  var keys = Object.keys(badgesLocaux);
+  if(keys.length === 0){
+    toast('Aucun badge à exporter','er');
+    return;
+  }
+  
+  var now = new Date();
+  var dateStr = now.toLocaleDateString('fr-FR').replace(/\//g, '-');
+  var fname = 'badges_magasin_' + dateStr + '.xlsx';
+  
+  // Créer les données pour XLSX
+  var rows = [['nom', 'matricule', 'n°badge', 'commentaire']];
+  
+  for(var i=0; i<keys.length; i++){
+    var badge = keys[i];
+    var emp = badgesLocaux[badge];
+    rows.push([
+      emp.nom,
+      emp.matricule,
+      badge,
+      emp.commentaire || ''
+    ]);
+  }
+  
+  // Créer le workbook XLSX
+  var ws = XLSX.utils.aoa_to_sheet(rows);
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Badges');
+  
+  // Télécharger
+  XLSX.writeFile(wb, fname);
+  toast('✅ Badges téléchargés: ' + fname, 'ok');
+  console.log('✅ Export OK');
+}
+
+function importBadgesFromFile(){
+  console.log('📤 Import badges depuis fichier');
+  $('badges-import-file').click();
+}
+
+$('badges-import-file').onchange = function(e){
+  var file = e.target.files[0];
+  if(!file) return;
+  
+  console.log('📂 Fichier sélectionné:', file.name);
+  
+  var reader = new FileReader();
+  reader.onload = function(evt){
+    try {
+      var data = new Uint8Array(evt.target.result);
+      var workbook = XLSX.read(data, { type: 'array' });
+      var firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+      var rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
+      
+      console.log('📋 Lignes lues:', rows.length);
+      
+      // Traiter les données (sauter l'en-tête)
+      var imported = 0;
+      for(var i = 1; i < rows.length; i++){
+        var row = rows[i];
+        if(!row || row.length < 3) continue;
+        
+        var nom = String(row[0] || '').trim();
+        var matricule = String(row[1] || '').trim();
+        var badgeCode = String(row[2] || '').trim();
+        var commentaire = String(row[3] || '').trim();
+        
+        if(nom && matricule && badgeCode){
+          var nouveau = addBadgeLocal(badgeCode, nom, matricule, commentaire);
+          if(nouveau) imported++;
+        }
+      }
+      
+      console.log('✅ Importés:', imported);
+      updateEmployesList();
+      toast('✅ ' + imported + ' badge(s) importé(s)!', 'ok');
+      this.value = ''; // Reset file input
+      
+    } catch(err){
+      console.error('❌ Erreur import:', err);
+      toast('❌ Erreur lecture fichier', 'er');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+};
 function startVideoScan(video){
   if('BarcodeDetector' in window){
     try{
