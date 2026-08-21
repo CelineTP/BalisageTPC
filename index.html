@@ -130,9 +130,6 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--txt);displa
 
 <div id="main">
 
-<!-- Champ caché pour recevoir la saisie du lecteur RFID -->
-<input type="text" id="badge-input" style="position:absolute;left:-9999px;width:1px;height:1px;" autocomplete="off">
-
 <div class="pg on" id="pg-consulter">
   <div class="szn">
     <div class="slbl">Rechercher un article</div>
@@ -148,13 +145,6 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--txt);displa
 </div>
 
 <div class="pg" id="pg-baliser">
-  <div id="badge-display" style="background:var(--grn2);border-left:4px solid var(--grn);padding:12px;margin-bottom:12px;border-radius:6px;display:none;">
-    <div style="font-size:12px;color:var(--mut);">Utilisateur</div>
-    <div style="font-size:15px;font-weight:700;color:var(--grn);margin-top:2px;" id="badge-text"></div>
-  </div>
-  <div id="badge-error" style="background:var(--red2);border-left:4px solid var(--red);padding:12px;margin-bottom:12px;border-radius:6px;display:none;">
-    <div style="font-size:12px;color:var(--mut);">⚠️ Veuillez scanner votre badge pour accéder à Balisage</div>
-  </div>
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
     <div style="font-size:18px;font-weight:700;">Listes de balisage</div>
     <button class="btn bP bSm" id="btn-newlist">+ Nouvelle</button>
@@ -190,8 +180,6 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--txt);displa
     </div>
   </div>
   <div id="det-arts" style="margin-bottom:12px;"></div>
-  <!-- Input file pour caméra badge (iOS) -->
-  <input type="file" id="cam-inp-badge" accept="image/*" capture="environment" style="display:none">
   <div style="display:flex;flex-direction:column;gap:10px;">
     <button class="btn bG bB" id="btn-send-gmail">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,12 2,6"/></svg>
@@ -248,35 +236,6 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--txt);displa
       <button class="btn bD bSm" id="btn-clr">Effacer</button>
     </div>
   </div>
-  <div class="card">
-    <div class="ctit">➕ Ajouter un employé</div>
-    <div class="fg"><label class="fl">Nom de l'employé</label><input class="fi" type="text" id="add-emp-nom" placeholder="Ex : Jean Dupont"></div>
-    <div class="fg"><label class="fl">Numéro de badge/Matricule</label><input class="fi" type="text" id="add-emp-matricule" placeholder="Ex : 232"></div>
-    <div class="fg"><label class="fl">Commentaire (optionnel)</label><input class="fi" type="text" id="add-emp-commentaire" placeholder="Ex : Renfort"></div>
-    <div class="fg">
-      <label class="fl">Scanner le badge</label>
-      <button class="btn bN bB" onclick="openCamForBadgeAdd()">📱 Scanner le badge</button>
-      <div id="add-emp-badge-status" style="margin-top:8px;font-size:12px;color:var(--mut);display:none;">
-        Badge scanné: <strong id="add-emp-badge-code" style="color:var(--org);">—</strong>
-      </div>
-    </div>
-    <button class="btn bP bB" onclick="registerEmployeeFromSettings()">✅ Enregistrer employé</button>
-  </div>
-  <div class="card">
-    <div class="ctit">Employés enregistrés</div>
-    <div id="employes-list-section" style="font-size:12px;color:var(--mut);max-height:250px;overflow-y:auto;">
-      <!-- Liste dynamique des employés -->
-    </div>
-    <div style="font-size:11px;color:var(--mut);margin-top:10px;padding-top:10px;border-top:1px solid var(--brd);">
-      Ajoutés localement lors du scan. Synchronisés au premier envoi de chaque semaine.
-    </div>
-    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
-      <button class="btn bG bSm" onclick="exportBadgesLocal()">📥 Télécharger badges</button>
-      <button class="btn bN bSm" onclick="importBadgesFromFile()">📤 Importer badges</button>
-      <input type="file" id="badges-import-file" accept=".csv,.xlsx,.xls" style="display:none;">
-    </div>
-  </div>
-
   <div class="card">
     <div class="ctit">Promotions</div>
     <div class="sr">
@@ -344,40 +303,6 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--txt);displa
     <div class="mtit">Ajouter a une liste</div>
     <div id="m-al-body"></div>
     <button class="btn bS bB" style="margin-top:10px" id="btn-al-cancel">Annuler</button>
-  </div>
-</div>
-
-<div class="mov" id="m-badge">
-  <div class="mod" style="max-width:400px;text-align:center;">
-    <div class="mhdl"></div>
-    <div class="mtit">🔑 Authentification</div>
-    <div style="padding:20px;text-align:center;color:var(--mut);line-height:1.8;">
-      <div style="font-size:14px;margin-bottom:16px;">Veuillez <strong>scanner votre badge</strong> pour continuer</div>
-      <div id="badge-modal-display" style="background:var(--bg);padding:12px;border-radius:6px;font-size:13px;color:var(--txt);font-weight:600;min-height:20px;">En attente...</div>
-      <button class="btn bP" style="margin-top:16px;width:100%;" id="btn-badge-cam">📷 Scannez le badge</button>
-    </div>
-  </div>
-</div>
-
-<div class="mov" id="m-badge-not-found">
-  <div class="mod" style="max-width:400px;">
-    <div class="mhdl"></div>
-    <div class="mtit">⚠️ Badge non trouvé</div>
-    <div style="padding:20px;color:var(--mut);line-height:1.8;">
-      <div style="font-size:13px;margin-bottom:12px;">
-        Badge scanné: <strong id="badge-scanned-code" style="color:var(--txt);">—</strong>
-      </div>
-      <div style="font-size:12px;margin-bottom:16px;">
-        Ce badge n'existe pas. Voulez-vous l'enregistrer?
-      </div>
-      <div class="fg"><label class="fl">Nom de l'employé</label><input class="fi" type="text" id="new-badge-name" placeholder="Ex : Jean Dupont"></div>
-      <div class="fg"><label class="fl">Numéro de badge/Matricule</label><input class="fi" type="text" id="new-badge-matricule" placeholder="Ex : 232"></div>
-      <div class="fg"><label class="fl">Commentaire (optionnel)</label><input class="fi" type="text" id="new-badge-commentaire" placeholder="Ex : Renfort"></div>
-      <div style="display:flex;gap:10px;margin-top:16px;">
-        <button class="btn bS" style="flex:1" id="btn-badge-cancel">Annuler</button>
-        <button class="btn bP" style="flex:1" id="btn-badge-register">➕ Enregistrer</button>
-      </div>
-    </div>
   </div>
 </div>
 
@@ -489,13 +414,7 @@ function goSec(pg, nb){
 }
 
 $('nb-consulter').onclick = function(){ showPg('consulter'); };
-$('nb-baliser').onclick   = function(){ 
-  if(!badgeActuel){
-    toast('Veuillez scanner votre badge pour accéder à Balisage', 'er');
-    return;
-  }
-  showPg('baliser'); 
-};
+$('nb-baliser').onclick   = function(){ showPg('baliser'); };
 $('nb-reglages').onclick  = function(){ showPg('reglages'); };
 $('btn-back-lists').onclick = function(){ showPg('baliser'); };
 
@@ -584,11 +503,6 @@ function updateGoogleUI(connected){
     st.textContent = '✓ Connecté à Google — Gmail & Drive actifs';
     $('logout-wrap').style.display = 'block';
     $('btn-google-login').style.display = 'none';
-    
-    // Vérifier/créer le dossier Balisage au premier enregistrement
-    if(!getBalisageFolderID()){
-      setTimeout(createBalisageFolder, 1000);
-    }
   } else {
     st.style.background = 'var(--bg)'; st.style.color = 'var(--mut)';
     st.textContent = 'Non connecté';
@@ -618,505 +532,6 @@ function loadPromos(){
     promos = {}; 
   } 
 }
-
-// ── BADGES & EMPLOYÉS (LOCAL) ─────────────────────────
-var badgeActuel = null;
-var badgesLocaux = {}; // Format: {badgeCode: {nom, matricule, commentaire, dateAjout}, ...}
-
-function saveBadge(){ lsSet('bp_badge', badgeActuel); }
-function loadBadge(){ badgeActuel = lsGet('bp_badge') || null; }
-
-function loadEmployes(){
-  // Charger depuis localStorage (local au téléphone)
-  try {
-    var d = lsGet('bp_badges_locaux');
-    badgesLocaux = d ? JSON.parse(d) : {};
-    console.log('Badges locaux chargés:', badgesLocaux);
-    updateEmployesList();
-  } catch(e){
-    console.error('Erreur chargement badges:', e);
-    badgesLocaux = {};
-  }
-}
-
-function addBadgeLocal(badge, nom, matricule, commentaire){
-  // Ajouter seulement si n'existe pas déjà
-  if(badgesLocaux[badge]){
-    return false; // Badge déjà existant
-  }
-  
-  badgesLocaux[badge] = {
-    nom: nom || '',
-    matricule: matricule || '',
-    commentaire: commentaire || '',
-    dateAjout: new Date().toISOString().split('T')[0]
-  };
-  saveBadgesLocaux();
-  updateEmployesList();
-  return true; // Nouveau badge
-}
-
-function updateEmployesList(){
-  var listDiv = $('employes-list-section');
-  if(!listDiv) return;
-  
-  var badges = Object.keys(badgesLocaux);
-  if(badges.length === 0){
-    listDiv.innerHTML = '<div style="padding:10px;text-align:center;color:var(--mut);">Aucun employé enregistré</div>';
-    return;
-  }
-  
-  var html = '<div style="padding:10px;">';
-  badges.forEach(function(badge){
-    var emp = badgesLocaux[badge];
-    html += '<div style="padding:8px;border-bottom:1px solid rgba(0,0,0,.1);display:flex;justify-content:space-between;align-items:center;">';
-    html += '<div><div style="font-weight:600;">' + emp.nom + '</div><div style="font-size:11px;color:var(--mut);">Mat: ' + emp.matricule + '</div></div>';
-    html += '<span style="font-size:11px;color:var(--mut);">Badge: ' + badge + '</span>';
-    html += '</div>';
-  });
-  html += '</div>';
-  listDiv.innerHTML = html;
-}
-
-function sendBadgesWeekly(){
-  // Envoyer les nouveaux badges une fois par semaine
-  var lastSend = lsGet('bp_badges_last_sync') || '2000-01-01';
-  var today = new Date().toISOString().split('T')[0]; // Format YYYY-MM-DD
-  
-  // Vérifier si plus de 7 jours ont passé
-  var lastDate = new Date(lastSend);
-  var todayDate = new Date(today);
-  var diffDays = Math.floor((todayDate - lastDate) / (1000 * 60 * 60 * 24));
-  
-  if(diffDays >= 7 && googleToken && Object.keys(badgesLocaux).length > 0){
-    // Créer le fichier CSV des badges de cette semaine
-    var csv = 'badge,nom,date_enregistrement\n';
-    var badges = Object.keys(badgesLocaux);
-    for(var i=0; i<badges.length; i++){
-      var badge = badges[i];
-      var nom = badgesLocaux[badge];
-      var now = new Date().toLocaleString('fr-FR');
-      csv += badge + ',' + nom + ',' + now + '\n';
-    }
-    
-    // Envoyer au Drive
-    var folderId = getBalisageFolderID();
-    if(!folderId){
-      createBalisageFolder();
-      return;
-    }
-    
-    var dateFile = today.replace(/-/g, '-');
-    var fname = 'employes_semaine_' + dateFile + '.csv';
-    var metadata = {
-      name: fname,
-      mimeType: 'text/csv',
-      parents: [folderId]
-    };
-    
-    var blob = new Blob([csv], {type: 'text/csv'});
-    var form = new FormData();
-    form.append('metadata', new Blob([JSON.stringify(metadata)], {type: 'application/json'}));
-    form.append('file', blob);
-    
-    fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-      method: 'POST',
-      headers: {'Authorization': 'Bearer ' + googleToken},
-      body: form
-    })
-    .then(r => r.json())
-    .then(data => {
-      if(data.id){
-        lsSet('bp_badges_last_sync', today);
-        console.log('Badges envoyés au Drive:', fname);
-        toast('Badges synchronisés avec Drive', 'ok');
-      }
-    })
-    .catch(err => console.error('Erreur envoi badges:', err));
-  }
-}
-
-function updateBadgeDisplay(){
-  var disp = $('badge-display');
-  var err = $('badge-error');
-  var hdrUser = $('hdr-user');
-  var hdrBadge = $('hdr-badge');
-  
-  if(badgeActuel && badgesLocaux[badgeActuel]){
-    var emp = badgesLocaux[badgeActuel];
-    
-    // Affichage badge zone
-    disp.style.display = 'block';
-    err.style.display = 'none';
-    $('badge-text').textContent = emp.nom + ' · ' + emp.matricule + ' (Badge: ' + badgeActuel + ')';
-    
-    // Affichage header
-    if(hdrUser) { hdrUser.textContent = emp.nom + ' · ' + emp.matricule; hdrUser.style.display = 'block'; }
-    if(hdrBadge) { hdrBadge.textContent = badgeActuel; hdrBadge.style.display = 'block'; }
-  } else if(badgeActuel){
-    disp.style.display = 'block';
-    err.style.display = 'none';
-    $('badge-text').textContent = 'Badge: ' + badgeActuel + ' (Non trouvé)';
-    if(hdrUser) hdrUser.style.display = 'none';
-    if(hdrBadge) hdrBadge.style.display = 'none';
-  } else {
-    disp.style.display = 'none';
-    err.style.display = 'block';
-    if(hdrUser) hdrUser.style.display = 'none';
-    if(hdrBadge) hdrBadge.style.display = 'none';
-  }
-}
-
-// Écouter la saisie du badge (lecteur RFID)
-$('badge-input').addEventListener('keypress', function(e){
-  if(e.key === 'Enter'){
-    var scanCode = this.value.trim();
-    // Nettoyer le code: supprimer espaces, caractères spéciaux courants du lecteur
-    scanCode = scanCode.replace(/[\s\r\n]/g, '').substring(0, 50);
-    
-    badgeActuel = scanCode;
-    saveBadge();
-    updateBadgeDisplay();
-    
-    // Mettre à jour la modal si elle est ouverte
-    var emp = badgesLocaux[badgeActuel];
-    
-    if(emp){
-      $('badge-modal-display').textContent = '✓ ' + emp.nom + ' · ' + emp.matricule;
-      // Fermer la modal après 1 seconde si badge trouvé
-      setTimeout(function(){
-        closeMod('m-badge');
-      }, 1000);
-    } else {
-      // Badge inconnu: afficher la modal "Ajouter badge"
-      showBadgeNotFoundModal(scanCode);
-    }
-    
-    this.value = '';
-    console.log('Badge scanné (nettoyé):', badgeActuel);
-  }
-});
-
-// ── GESTION BADGES LOCAUX ─────────────────────────────
-var badgesLocaux = {}; // {badge: nom}
-
-function saveBadgesLocaux(){ lsSet('bp_badges_locaux', JSON.stringify(badgesLocaux)); }
-
-function renderBadgesLocaux(){
-  var cont = $('badges-locaux-list');
-  if(!cont) return;
-  
-  var keys = Object.keys(badgesLocaux);
-  if(keys.length === 0){
-    cont.innerHTML = '<div style="color:var(--mut);font-size:13px;padding:12px;text-align:center;">Aucun badge enregistré</div>';
-    return;
-  }
-  
-  var html = '';
-  for(var i=0; i<keys.length; i++){
-    var badge = keys[i];
-    var emp = badgesLocaux[badge];
-    html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:10px;border-bottom:1px solid var(--brd);font-size:13px;">';
-    html += '<div><strong>'+emp.nom+'</strong><div style="color:var(--mut);font-size:11px;">Mat: '+emp.matricule+' · Badge: '+badge+'</div>';
-    if(emp.commentaire) html += '<div style="color:var(--org);font-size:11px;">💬 '+emp.commentaire+'</div>';
-    html += '</div>';
-    html += '<button class="btn bD bSm" onclick="removeBadgeLocal(\''+badge+'\')">✕</button>';
-    html += '</div>';
-  }
-  cont.innerHTML = html;
-}
-
-function removeBadgeLocal(badge){
-  if(!confirm('Supprimer ce badge?')) return;
-  delete badgesLocaux[badge];
-  saveBadgesLocaux();
-  renderBadgesLocaux();
-  toast('Badge supprimé','ok');
-}
-
-// Tracer quand on a envoyé les badges (pour l'export hebdomadaire)
-function getLastBadgeExportDate(){
-  return lsGet('bp_last_badge_export') || null;
-}
-
-function setLastBadgeExportDate(date){
-  lsSet('bp_last_badge_export', date);
-}
-
-function shouldExportBadgesThisWeek(){
-  var lastExport = getLastBadgeExportDate();
-  if(!lastExport) return true; // Jamais exporté
-  
-  var lastDate = new Date(lastExport);
-  var today = new Date();
-  var daysAgo = Math.floor((today - lastDate) / (1000 * 60 * 60 * 24));
-  
-  return daysAgo >= 7; // Plus de 7 jours
-}
-
-function exportBadgesThisWeek(){
-  if(!shouldExportBadgesThisWeek()) return; // Pas le moment
-  
-  var keys = Object.keys(badgesLocaux);
-  if(keys.length === 0) return; // Rien à exporter
-  
-  var now = new Date();
-  var dateStr = now.toLocaleDateString('fr-FR').replace(/\//g, '-');
-  var xlsxName = 'badges_semaine_' + dateStr + '.xlsx';
-  
-  // Créer les données pour XLSX
-  var rows = [['nom', 'matricule', 'n°badge', 'commentaire']];
-  
-  for(var i=0; i<keys.length; i++){
-    var badge = keys[i];
-    var emp = badgesLocaux[badge];
-    rows.push([
-      emp.nom,
-      emp.matricule,
-      badge,
-      emp.commentaire || ''
-    ]);
-  }
-  
-  // Créer le workbook XLSX
-  var ws = XLSX.utils.aoa_to_sheet(rows);
-  var wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Badges');
-  
-  // Envoyer à Drive ou télécharger localement
-  if(googleToken && getBalisageFolderID()){
-    uploadBadgesFileXLSX(xlsxName, wb);
-  } else {
-    XLSX.writeFile(wb, xlsxName);
-    toast('Fichier badges téléchargé', 'ok');
-  }
-  
-  // Marquer comme exporté
-  setLastBadgeExportDate(now.toISOString());
-}
-
-function uploadBadgesFileXLSX(fname, workbook){
-  var folderId = getBalisageFolderID();
-  if(!folderId || !googleToken) return;
-  
-  // Convertir workbook en blob XLSX
-  var wbout = XLSX.write(workbook, {bookType: 'xlsx', type: 'array'});
-  var blob = new Blob([wbout], {type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-  
-  var metadata = {
-    name: fname,
-    mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    parents: [folderId]
-  };
-  
-  var form = new FormData();
-  form.append('metadata', new Blob([JSON.stringify(metadata)], {type: 'application/json'}));
-  form.append('file', blob);
-  
-  fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-    method: 'POST',
-    headers: {'Authorization': 'Bearer ' + googleToken},
-    body: form
-  })
-  .then(r => r.json())
-  .then(data => {
-    if(data.id){
-      console.log('Fichier badges XLSX envoyé:', fname);
-      toast('Badges semaine sauvegardés sur Drive','ok');
-    }
-  })
-  .catch(err => console.error('Erreur upload badges:', err));
-}
-
-function uploadBadgesFile(fname, csvContent){
-  // Fonction conservée pour compatibilité (deprecated - utiliser uploadBadgesFileXLSX)
-  var folderId = getBalisageFolderID();
-  if(!folderId || !googleToken) return;
-  
-  var metadata = {
-    name: fname,
-    mimeType: 'text/csv',
-    parents: [folderId]
-  };
-  
-  var blob = new Blob([csvContent], {type: 'text/csv'});
-  var form = new FormData();
-  form.append('metadata', new Blob([JSON.stringify(metadata)], {type: 'application/json'}));
-  form.append('file', blob);
-  
-  fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-    method: 'POST',
-    headers: {'Authorization': 'Bearer ' + googleToken},
-    body: form
-  })
-  .then(r => r.json())
-  .then(data => {
-    if(data.id){
-      console.log('Fichier badges envoyé:', fname);
-      toast('Badges semaine sauvegardés sur Drive','ok');
-    }
-  })
-  .catch(err => console.error('Erreur upload badges:', err));
-}
-
-// ── GESTION DOSSIER DRIVE ─────────────────────────────
-var balisageDossierID = null;
-
-function getBalisageFolderID(){
-  return lsGet('bp_balisage_folder_id');
-}
-
-function saveBalisageFolderID(id){
-  lsSet('bp_balisage_folder_id', id);
-  balisageDossierID = id;
-}
-
-function createBalisageFolder(){
-  var sn = lsGet('bp_sn') || 'Magasin';
-  var folderName = 'Balisage TPC - ' + sn;
-  
-  var metadata = {name: folderName, mimeType: 'application/vnd.google-apps.folder'};
-  
-  fetch('https://www.googleapis.com/drive/v3/files', {
-    method: 'POST',
-    headers: {
-      'Authorization': 'Bearer ' + googleToken,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(metadata)
-  })
-  .then(r => r.json())
-  .then(data => {
-    if(data.id){
-      saveBalisageFolderID(data.id);
-      console.log('Dossier Balisage créé:', data.id);
-      // Créer le CSV employés dedans
-      createEmployesCSV();
-    }
-  })
-  .catch(err => console.error('Erreur création dossier:', err));
-}
-
-function createEmployesCSV(){
-  var folderId = getBalisageFolderID();
-  if(!folderId) return;
-  
-  var csv = 'badge,nom,date_enregistrement\n';
-  var metadata = {
-    name: 'employes_enregistres.csv',
-    mimeType: 'text/csv',
-    parents: [folderId]
-  };
-  
-  var blob = new Blob([csv], {type: 'text/csv'});
-  var form = new FormData();
-  form.append('metadata', new Blob([JSON.stringify(metadata)], {type: 'application/json'}));
-  form.append('file', blob);
-  
-  fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
-    method: 'POST',
-    headers: {'Authorization': 'Bearer ' + googleToken},
-    body: form
-  })
-  .then(r => r.json())
-  .then(data => {
-    if(data.id){
-      lsSet('bp_employes_csv_id', data.id);
-      console.log('CSV employés créé:', data.id);
-    }
-  })
-  .catch(err => console.error('Erreur création CSV:', err));
-}
-
-function addEmployeToCSV(badge, nom){
-  var csvId = lsGet('bp_employes_csv_id');
-  if(!csvId) return;
-  
-  var now = new Date().toLocaleString('fr-FR');
-  var ligne = badge + ',' + nom + ',' + now + '\n';
-  
-  // Récupérer le contenu actuel du CSV
-  fetch('https://www.googleapis.com/drive/v3/files/' + csvId + '?alt=media', {
-    headers: {'Authorization': 'Bearer ' + googleToken}
-  })
-  .then(r => r.text())
-  .then(contenu => {
-    var nouveau = contenu + ligne;
-    var blob = new Blob([nouveau], {type: 'text/csv'});
-    
-    // Mettre à jour le fichier
-    fetch('https://www.googleapis.com/upload/drive/v3/files/' + csvId + '?uploadType=media', {
-      method: 'PATCH',
-      headers: {'Authorization': 'Bearer ' + googleToken},
-      body: blob
-    })
-    .then(() => {
-      console.log('Employé ajouté au CSV:', badge, nom);
-      toast('Badge enregistré avec succès!', 'ok');
-      updateBadgeDisplay();
-    })
-    .catch(err => console.error('Erreur MAJ CSV:', err));
-  })
-  .catch(err => console.error('Erreur lecture CSV:', err));
-}
-
-function showBadgeNotFoundModal(badgeCode){
-  $('badge-scanned-code').textContent = badgeCode;
-  $('new-badge-name').value = '';
-  $('new-badge-matricule').value = '';
-  $('new-badge-commentaire').value = '';
-  closeMod('m-badge');
-  openMod('m-badge-not-found');
-  $('new-badge-name').focus();
-}
-
-// Handlers pour la modal badge inconnu
-$('btn-badge-cancel').onclick = function(){
-  closeMod('m-badge-not-found');
-  openMod('m-badge');
-  $('badge-input').focus();
-};
-
-$('btn-badge-register').onclick = function(){
-  var badgeCode = $('badge-scanned-code').textContent;
-  var nom = $('new-badge-name').value.trim();
-  var matricule = $('new-badge-matricule').value.trim();
-  var commentaire = $('new-badge-commentaire').value.trim();
-  
-  if(!nom || !matricule){
-    toast('Remplissez nom et matricule','er');
-    return;
-  }
-  
-  // Ajouter localement avec tous les paramètres
-  var nouveau = addBadgeLocal(badgeCode, nom, matricule, commentaire);
-  
-  if(!nouveau){
-    toast('Ce badge existe déjà','er');
-    closeMod('m-badge-not-found');
-    badgeActuel = badgeCode;
-    saveBadge();
-    updateBadgeDisplay();
-    openMod('m-badge');
-    setTimeout(function(){
-      closeMod('m-badge');
-    }, 1000);
-    return;
-  }
-  
-  // Badge ajouté avec succès
-  badgeActuel = badgeCode;
-  saveBadge();
-  updateBadgeDisplay();
-  
-  toast('Badge enregistré: ' + nom, 'ok');
-  closeMod('m-badge-not-found');
-  openMod('m-badge');
-  
-  setTimeout(function(){
-    closeMod('m-badge');
-  }, 1500);
-};
 
 $('btn-promo-imp').onclick = function(){ $('promo-inp').click(); };
 $('promo-inp').onchange = function(){ if(this.files[0]) importPromo(this.files[0]); this.value = ''; };
@@ -1157,8 +572,11 @@ function parsePromo(txt, fname){
     dateFin:  fc(['date_fin','datefin','dateend'])
   };
   
+  console.log('Colonnes trouvées:', idx, 'En-têtes:', head);
+  
   if(idx.code < 0 || idx.pv < 0 || idx.promo < 0) { 
     toast('Colonnes manquantes (code, pv, prix_promo requises)'); 
+    console.log('Erreur: colonnes manquantes', idx);
     return; 
   }
   
@@ -1176,12 +594,15 @@ function parsePromo(txt, fname){
       dateFin: idx.dateFin >= 0 ? parts[idx.dateFin] : null
     };
     
+    console.log('Promo trouvée:', code, obj);
+    
     if(obj.promo > 0) {
       promos[code] = obj;
       cnt++;
     }
   }
   
+  console.log('Promos finales:', promos);
   savePromos(); loadPromos();
   var s = $('imp-promo-st');
   s.textContent = '✓ ' + cnt + ' promo(s) importée(s)';
@@ -1420,7 +841,10 @@ function renderArtCard(a){
   var promoInfo = '';
   var priceDisplay = pv;
   
+  console.log('Article:', a.code, 'Promos disponibles:', Object.keys(promos));
+  
   if(promos[a.code]){
+    console.log('Promo trouvée pour', a.code, promos[a.code]);
     var p = promos[a.code];
     var isActive = true;
     
@@ -1439,12 +863,16 @@ function renderArtCard(a){
       }
     }
     
+    console.log('Promo active?', isActive);
+    
     // Afficher la promo si active
     if(isActive && p.promo > 0){
       var reduction = Math.round((1 - p.promo/pv) * 100);
       promoInfo = '<div style="margin-top:6px;"><span style="text-decoration:line-through;color:var(--mut);font-size:13px;">'+pv+' XPF</span> <span style="background:var(--org2);color:var(--org);font-weight:700;margin-left:8px;padding:4px 12px;border-radius:6px;font-size:14px;">'+xpf(p.promo)+' XPF</span></div>';
       priceDisplay = xpf(p.promo);
     }
+  } else {
+    console.log('Pas de promo pour', a.code);
   }
   
   var stockBysite = '';
@@ -1759,13 +1187,7 @@ function buildXLS(l){
   var fname = safeName(l.name) + '_' + dateFile + '.xls';
 
   // Construire les données
-  var empName = (badgeActuel && badgesLocaux[badgeActuel]) ? (badgesLocaux[badgeActuel].nom + ' · ' + badgesLocaux[badgeActuel].matricule) : 'Inconnu';
-  var rows = [
-    ['Utilisateur', empName],
-    ['Badge', badgeActuel || '—'],
-    [''],
-    ['Code-barre','Libell\u00e9','Quantit\u00e9']
-  ];
+  var rows = [['Code-barre','Libell\u00e9','Quantit\u00e9']];
   l.arts.forEach(function(a){
     // EAN en priorité, sinon code article
     var ean = a.ean ? ne(a.ean) : (a.code ? String(a.code) : '');
@@ -1823,7 +1245,7 @@ function buildBiff5Book(rows){
   // BOF worksheet
   ws=ws.concat(rec(0x0809,[0x00,0x06,0x10,0x00,0x0A,0x54,0xCD,0x07]));
   // DIMENSIONS
-  ws=ws.concat(rec(0x0200, u16(0).concat(u16(rows.length)).concat(u16(0)).concat(u16(Math.max(3, rows[0].length))).concat(u16(0))));
+  ws=ws.concat(rec(0x0200, u16(0).concat(u16(rows.length)).concat(u16(0)).concat(u16(3)).concat(u16(0))));
   // Cellules
   for(var ri=0;ri<rows.length;ri++){
     var row=rows[ri];
@@ -1955,18 +1377,7 @@ $('btn-export-xls').onclick = function(){
   var url = URL.createObjectURL(r.blob);
   var a = document.createElement('a'); a.href=url; a.download=r.name; a.click();
   URL.revokeObjectURL(url);
-  
-  // Réinitialiser le badge après export
-  badgeActuel = null;
-  saveBadge();
-  updateBadgeDisplay();
   toast('XLS telecharge: '+r.name,'ok');
-  
-  // Rouvrir la modal de badge
-  setTimeout(function(){
-    openMod('m-badge');
-    $('badge-input').focus();
-  }, 500);
 };
 
 function showOverlay(msg){
@@ -2001,26 +1412,12 @@ function doSend(l, email){
         toast('Erreur envoi: '+err.msg,'er');
       } else {
         toast('Gmail envoye + Drive sauvegarde !','ok');
-        
-        // Envoyer les badges une fois par semaine
-        sendBadgesWeekly();
-        
         // Supprimer la liste envoyée (traitée)
         lists = lists.filter(function(x){ return x.id !== curList; });
         saveLists();
         curList = null;
-        
-        // NE PAS réinitialiser le badge - le garder actif!
-        // badgeActuel reste valide pour les prochains exports
-        
         renderLists(); updBdg();
         showPg('baliser');
-        
-        // Réafficher la modal badge pour prêt à envoyer la prochaine liste
-        setTimeout(function(){
-          openMod('m-badge');
-          $('badge-input').focus();
-        }, 500);
       }
     });
   });
@@ -2110,47 +1507,14 @@ function onCodeDetected(code){
   if(code && (code !== lastCode || now - lastTime > 2000)){
     lastCode = code; lastTime = now;
     closeCam();
-    
-    // Nettoyer le code: supprimer espaces, caractères spéciaux
-    var cleanCode = code.trim().replace(/[\s\r\n]/g, '').substring(0, 50);
-    
     if(camMode === 'scan'){
-      $('scan-in').value = cleanCode;
-      doSearch(cleanCode);
-    } else if(camMode === 'list'){
-      $('scan-list').value = cleanCode;
-      addToCurrentList(cleanCode);
-    } else if(camMode === 'badge'){
-      // Mode badge: remplir le badge et mettre à jour
-      badgeActuel = cleanCode;
-      saveBadge();
-      updateBadgeDisplay();
-      
-      var emp = badgesLocaux[badgeActuel];
-      
-      if(emp){
-        // Badge trouvé
-        $('badge-modal-display').textContent = '✓ ' + emp.nom + ' · ' + emp.matricule;
-        // Fermer la modal après 1 seconde
-        setTimeout(function(){
-          closeMod('m-badge');
-        }, 1000);
-        toast('Badge scanné: ' + cleanCode, 'ok');
-      } else {
-        // Badge inconnu: afficher la modal "Ajouter badge"
-        showBadgeNotFoundModal(cleanCode);
-        toast('Badge non trouvé: ' + cleanCode, 'er');
-      }
-      return;
-    } else if(camMode === 'badge-add'){
-      // Mode ajout depuis réglages
-      $('add-emp-badge-code').textContent = cleanCode;
-      $('add-emp-badge-status').style.display = 'block';
-      toast('Badge scanné: ' + cleanCode, 'ok');
-      return;
+      $('scan-in').value = code;
+      doSearch(code);
+    } else {
+      $('scan-list').value = code;
+      addToCurrentList(code);
     }
-    
-    toast('Code détecté: ' + cleanCode, 'ok');
+    toast('Code détecté: ' + code, 'ok');
   }
 }
 
@@ -2158,25 +1522,19 @@ $('btn-cam-cls').onclick = closeCam;
 
 $('btn-cam1').onclick = function(){ openCam('scan'); };
 $('btn-cam2').onclick = function(){ openCam('list'); };
-$('btn-badge-cam').onclick = function(){ openCam('badge'); };
 
 // Input file pour iOS (photo → décodage)
 var camInp1 = $('cam-inp1');
 var camInp2 = $('cam-inp2');
-var camInpBadge = $('cam-inp-badge');
 if(camInp1) camInp1.onchange = function(){ if(this.files[0]) decodeImageFile(this.files[0]); this.value=''; };
 if(camInp2) camInp2.onchange = function(){ if(this.files[0]) decodeImageFile(this.files[0]); this.value=''; };
-if(camInpBadge) camInpBadge.onchange = function(){ if(this.files[0]) decodeImageFile(this.files[0]); this.value=''; };
 
 function openCam(mode){
   camMode = mode;
 
   // iOS Safari: utiliser l'input file natif (le plus fiable)
   if(isIOS){
-    var inp;
-    if(mode === 'scan') inp = $('cam-inp1');
-    else if(mode === 'list') inp = $('cam-inp2');
-    else if(mode === 'badge') inp = $('cam-inp-badge');
+    var inp = (mode === 'scan') ? $('cam-inp1') : $('cam-inp2');
     if(inp){ inp.value=''; inp.click(); }
     return;
   }
@@ -2214,178 +1572,7 @@ function closeCam(){
   $('cam').classList.remove('on');
 }
 
-// ── AJOUTER EMPLOYÉ DEPUIS RÉGLAGES ───────────────────
-function openCamForBadgeAdd(){
-  console.log('📱 Ouverture caméra mode badge-add');
-  
-  // Nettoyer les badges du statut
-  $('add-emp-badge-code').textContent = '—';
-  $('add-emp-badge-status').style.display = 'none';
-  
-  camMode = 'badge-add';
-  openCam('badge-add');
-}
-
-function registerEmployeeFromSettings(){
-  console.log('🔍 registerEmployeeFromSettings appelée');
-  
-  var nom = $('add-emp-nom').value.trim();
-  var matricule = $('add-emp-matricule').value.trim();
-  var commentaire = $('add-emp-commentaire').value.trim();
-  var badgeCode = $('add-emp-badge-code').textContent.trim();
-  
-  console.log('Données saisies:', {nom, matricule, commentaire, badgeCode});
-  
-  if(!nom || !matricule || !badgeCode || badgeCode === '—'){
-    console.log('❌ Validation échouée - champs manquants');
-    toast('Remplissez tous les champs et scannez un badge','er');
-    return;
-  }
-  
-  console.log('✅ Validation OK - ajout du badge');
-  
-  // Ajouter le badge localement
-  var nouveau = addBadgeLocal(badgeCode, nom, matricule, commentaire);
-  
-  console.log('Résultat addBadgeLocal:', nouveau);
-  
-  if(!nouveau){
-    console.log('❌ Badge déjà existant');
-    toast('Ce badge existe déjà','er');
-    return;
-  }
-  
-  console.log('✅ Badge ajouté avec succès');
-  
-  // Réinitialiser les champs
-  $('add-emp-nom').value = '';
-  $('add-emp-matricule').value = '';
-  $('add-emp-commentaire').value = '';
-  $('add-emp-badge-code').textContent = '—';
-  $('add-emp-badge-status').style.display = 'none';
-  
-  toast('✅ Employé enregistré!','ok');
-  
-  // Mettre à jour l'affichage des employés
-  updateEmployesList();
-  
-  // Afficher la liste mise à jour
-  renderBadgesLocaux();
-  
-  console.log('badgesLocaux actuel:', badgesLocaux);
-  
-  // Vérifier si on doit exporter cette semaine
-  checkAndExportBadgesThisWeek();
-}
-
-function checkAndExportBadgesThisWeek(){
-  // Vérifier si c'est le moment d'exporter
-  var lastExport = lsGet('bp_badges_last_export_date');
-  if(!lastExport){
-    // Première export, le faire maintenant
-    exportBadgesThisWeek();
-  } else {
-    var lastDate = new Date(lastExport);
-    var today = new Date();
-    var daysAgo = Math.floor((today - lastDate) / (1000 * 60 * 60 * 24));
-    
-    if(daysAgo >= 7){
-      // Plus de 7 jours, exporter
-      exportBadgesThisWeek();
-    }
-  }
-}
-
-// ── IMPORT/EXPORT BADGES LOCAL ─────────────────────────
-
-function exportBadgesLocal(){
-  console.log('📥 Export badges locaux');
-  
-  var keys = Object.keys(badgesLocaux);
-  if(keys.length === 0){
-    toast('Aucun badge à exporter','er');
-    return;
-  }
-  
-  var now = new Date();
-  var dateStr = now.toLocaleDateString('fr-FR').replace(/\//g, '-');
-  var fname = 'badges_magasin_' + dateStr + '.xlsx';
-  
-  // Créer les données pour XLSX
-  var rows = [['nom', 'matricule', 'n°badge', 'commentaire']];
-  
-  for(var i=0; i<keys.length; i++){
-    var badge = keys[i];
-    var emp = badgesLocaux[badge];
-    rows.push([
-      emp.nom,
-      emp.matricule,
-      badge,
-      emp.commentaire || ''
-    ]);
-  }
-  
-  // Créer le workbook XLSX
-  var ws = XLSX.utils.aoa_to_sheet(rows);
-  var wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Badges');
-  
-  // Télécharger
-  XLSX.writeFile(wb, fname);
-  toast('✅ Badges téléchargés: ' + fname, 'ok');
-  console.log('✅ Export OK');
-}
-
-function importBadgesFromFile(){
-  console.log('📤 Import badges depuis fichier');
-  $('badges-import-file').click();
-}
-
-$('badges-import-file').onchange = function(e){
-  var file = e.target.files[0];
-  if(!file) return;
-  
-  console.log('📂 Fichier sélectionné:', file.name);
-  
-  var reader = new FileReader();
-  reader.onload = function(evt){
-    try {
-      var data = new Uint8Array(evt.target.result);
-      var workbook = XLSX.read(data, { type: 'array' });
-      var firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-      var rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1 });
-      
-      console.log('📋 Lignes lues:', rows.length);
-      
-      // Traiter les données (sauter l'en-tête)
-      var imported = 0;
-      for(var i = 1; i < rows.length; i++){
-        var row = rows[i];
-        if(!row || row.length < 3) continue;
-        
-        var nom = String(row[0] || '').trim();
-        var matricule = String(row[1] || '').trim();
-        var badgeCode = String(row[2] || '').trim();
-        var commentaire = String(row[3] || '').trim();
-        
-        if(nom && matricule && badgeCode){
-          var nouveau = addBadgeLocal(badgeCode, nom, matricule, commentaire);
-          if(nouveau) imported++;
-        }
-      }
-      
-      console.log('✅ Importés:', imported);
-      updateEmployesList();
-      toast('✅ ' + imported + ' badge(s) importé(s)!', 'ok');
-      this.value = ''; // Reset file input
-      
-    } catch(err){
-      console.error('❌ Erreur import:', err);
-      toast('❌ Erreur lecture fichier', 'er');
-    }
-  };
-  reader.readAsArrayBuffer(file);
-};
+// ── SCAN VIDÉO Android/Chrome ─────────────────────────
 function startVideoScan(video){
   if('BarcodeDetector' in window){
     try{
@@ -2489,19 +1676,6 @@ document.querySelectorAll('.mov').forEach(function(o){
 // ── INIT ──────────────────────────────────────────────
 loadAll();
 loadPromos();
-loadBadge();
-loadEmployes();
-updateBadgeDisplay();
-// Focus sur le champ badge pour écouter le lecteur RFID
-$('badge-input').focus();
-
-// Ouvrir modal badge si pas de badge en cache
-setTimeout(function(){
-  if(!badgeActuel){
-    openMod('m-badge');
-  }
-}, 500);
-
 // Tenter d'initialiser Google après chargement de la lib
 setTimeout(initTokenClient, 1500);
 
