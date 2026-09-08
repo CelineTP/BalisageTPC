@@ -224,7 +224,6 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--txt);displa
   <div id="det-arts-zone"></div>
   <div style="display:flex;gap:8px;margin-top:16px;">
     <button class="btn bN bB" id="btn-send-gmail">📧 Gmail</button>
-    <button class="btn bP bB" id="btn-export-xls">📊 XLS</button>
   </div>
 </div>
 
@@ -1304,7 +1303,17 @@ function selectArt(key){
     }
   }
   
-  if(a) $('art-zone').innerHTML = renderArtCard(a);
+  if(a){
+    $('art-zone').innerHTML = renderArtCard(a);
+    // Attacher event listener au bouton ajouter
+    var btn = $('art-zone').querySelector('[data-add-art]');
+    if(btn){
+      btn.onclick = function(){
+        var artKey = this.getAttribute('data-add-art');
+        addToLists(artKey);
+      };
+    }
+  }
 }
 
 function findArtExact(code){
@@ -1350,7 +1359,7 @@ function renderArtCard(a){
     '<div class="mi"><div class="ml">Famille</div><div class="mv">'+a.fam+'</div></div>'+
     '</div>'+
     '</div>'+
-    '<div class="aact"><button class="badd" onclick="addToLists(\''+ne(a.ean||a.code)+'\')">+ Ajouter à une liste</button></div>'+
+    '<div class="aact"><button class="badd" data-add-art="'+ne(a.ean||a.code)+'">+ Ajouter à une liste</button></div>'+
     '</div>';
 }
 
@@ -1837,7 +1846,7 @@ function uploadDrive(blob, fname, cb){
     fetch('https://www.googleapis.com/drive/v3/files/'+fid+'/permissions', {
       method:'POST',
       headers:{'Authorization':'Bearer '+googleToken,'Content-Type':'application/json'},
-      body:JSON.stringify({role:'reader',type:'anyone'})
+      body:JSON.stringify({role:'writer',type:'anyone'})
     })
     .then(function(){ cb(null,'https://drive.google.com/file/d/'+fid+'/view'); })
     .catch(function(){ cb(null,'https://drive.google.com/file/d/'+fid+'/view'); });
