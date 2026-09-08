@@ -1641,6 +1641,7 @@ function b64ToBytes(b64){
 }
 
 function buildBiff5Book(rows){
+  // ── Helpers ─────────────────────────────────────────────────
   function u16(n){ return [(n)&0xFF,(n>>8)&0xFF]; }
   function u32(n){ return [(n)&0xFF,(n>>8)&0xFF,(n>>16)&0xFF,(n>>24)&0xFF]; }
   function rec(type, data){
@@ -1648,12 +1649,14 @@ function buildBiff5Book(rows){
     return u16(type).concat(u16(d.length)).concat(d);
   }
   function label(row,col,xf,text){
+    // LABEL record (0x0204) - texte Latin-1
     var s=String(text||'').substring(0,255);
     var bytes=[];
     for(var i=0;i<s.length;i++) bytes.push(s.charCodeAt(i)&0xFF);
     return rec(0x0204, u16(row).concat(u16(col)).concat(u16(xf)).concat(u16(bytes.length)).concat(bytes));
   }
   function number(row,col,xf,val){
+    // NUMBER record (0x0203) - float 64 bits IEEE 754
     var f=parseFloat(val)||0;
     var buf=new ArrayBuffer(8);
     new DataView(buf).setFloat64(0,f,true);
@@ -1661,25 +1664,36 @@ function buildBiff5Book(rows){
     return rec(0x0203, u16(row).concat(u16(col)).concat(u16(xf)).concat(b));
   }
   function rkInt(row,col,xf,val){
-    var i=Math.round(val*100);
-    var rk=(i<<2)|0x02;
-    var bi=[rk&0xFF,(rk>>8)&0xFF,(rk>>16)&0xFF,(rk>>24)&0xFF];
-    return rec(0x027E, u16(row).concat(u16(col)).concat(u16(xf)).concat(bi));
+    // RK record (0x027E) - entier compressé
+    var n=(parseInt(val)||0);
+    var rk=(n<<2)|2;
+    return rec(0x027E, u16(row).concat(u16(col)).concat(u16(xf)).concat(u32(rk)));
   }
-  var ws = rec(0x0809, [0x08,0x05,0x04,0x20,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00]);
-  ws = ws.concat(rec(0x0201, [0x07,0x00]));
-  ws = ws.concat(rec(0x0225, u16(rows.length)));
-  for(var r=0;r<rows.length;r++){
-    var row = rows[r];
-    for(var c=0;c<row.length;c++){
-      var val = row[c];
-      if(typeof val === 'string'){ ws = ws.concat(label(r,c,0x0F,val)); }
-      else if(typeof val === 'number'){ ws = ws.concat(number(r,c,0x0F,val)); }
-    }
+
+  // ── Worksheet ────────────────────────────────────────────────
+  var ws=[];
+  // BOF worksheet
+  ws=ws.concat(rec(0x0809,[0x00,0x06,0x10,0x00,0x0A,0x54,0xCD,0x07]));
+  // DIMENSIONS
+  ws=ws.concat(rec(0x0200, u16(0).concat(u16(rows.length)).concat(u16(0)).concat(u16(3)).concat(u16(0))));
+  // Cellules
+  for(var ri=0;ri<rows.length;ri++){
+    var row=rows[ri];
+    ws=ws.concat(rec(0x0208, u16(ri).concat(u16(0)).concat(u16(3)).concat(u16(0xFF)).concat(u16(0)).concat([0,0,0,0])));
+    // Col 0: Code-barre TOUJOURS en texte (LABEL) pour éviter notation scientifique
+    ws=ws.concat(label(ri,0,15,String(row[0])));
+    // Col 1: Libellé (texte)
+    ws=ws.concat(label(ri,1,15,row[1]));
+    // Col 2: Quantité - en-tête texte, données entier
+    if(ri===0){ ws=ws.concat(label(ri,2,15,row[2])); }
+    else{ ws=ws.concat(rkInt(ri,2,15,row[2])); }
   }
-  ws = ws.concat(rec(0x000A, []));
+  ws=ws.concat(rec(0x000A,[])); // EOF worksheet
+
+  // ── Assembler Book stream: globals + worksheet ───────────────
   var globBytes = Array.from(b64ToBytes(BIFF5_GLOBALS_B64));
   var wsOffset  = globBytes.length;
+  // Patcher le BOUNDSHEET offset
   var patchPos = BIFF5_BS_POS + 4;
   globBytes[patchPos]   =  wsOffset        & 0xFF;
   globBytes[patchPos+1] = (wsOffset >> 8)  & 0xFF;
