@@ -337,6 +337,21 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--txt);displa
   </button>
 </nav>
 
+<!-- ── MODAL DIAGNOSTIC ── -->
+<div class="mov" id="m-diag">
+  <div class="mod" style="max-height:80vh;overflow:auto;">
+    <div class="mhdl"></div>
+    <div class="mtit">📊 Diagnostic (Logs)</div>
+    <div id="diag-logs" style="font-family:monospace;font-size:11px;line-height:1.4;background:#1e1e1e;color:#00ff00;padding:12px;border-radius:6px;max-height:400px;overflow-y:auto;margin-bottom:12px;">
+      <div style="color:#888;">Les logs s'afficheront ici...</div>
+    </div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn bS" style="flex:1" id="btn-diag-clear">Effacer</button>
+      <button class="btn bP" style="flex:1" id="btn-diag-close">Fermer</button>
+    </div>
+  </div>
+</div>
+
 <div class="mov" id="m-nl">
   <div class="mod">
     <div class="mhdl"></div>
@@ -472,7 +487,59 @@ var autoLockDelay = 0, autoLockTimer = null;
 var tokenClient = null, googleToken = null, pendingAction = null;
 var storeLogo = null;
 var currentUnknownBadge = null; // pour enregistrement rapide
-// ── GESTION ZXING ──────────────────────────────────
+// ── SYSTÈME DE DIAGNOSTIC ──────────────────────────────
+var diagLogs = [];
+var originalLog = console.log;
+var originalError = console.error;
+var originalWarn = console.warn;
+
+function addDiagLog(type, args){
+  var msg = Array.from(args).join(' ');
+  var timestamp = new Date().toLocaleTimeString();
+  var color = type === 'error' ? '🔴' : (type === 'warn' ? '🟡' : '🔵');
+  diagLogs.push('[' + timestamp + '] ' + color + ' ' + msg);
+  if(diagLogs.length > 100) diagLogs.shift();  // Garder les 100 derniers
+  updateDiagDisplay();
+}
+
+function updateDiagDisplay(){
+  var el = $('diag-logs');
+  if(!el) return;
+  el.innerHTML = diagLogs.map(function(log){
+    return '<div>' + log + '</div>';
+  }).join('');
+  el.scrollTop = el.scrollHeight;  // Auto-scroll to bottom
+}
+
+// Rediriger les console methods
+console.log = function(){
+  originalLog.apply(console, arguments);
+  addDiagLog('log', arguments);
+};
+
+console.error = function(){
+  originalError.apply(console, arguments);
+  addDiagLog('error', arguments);
+};
+
+console.warn = function(){
+  originalWarn.apply(console, arguments);
+  addDiagLog('warn', arguments);
+};
+
+// Capturer aussi les errors non attrapées
+window.onerror = function(msg, url, line, col, err){
+  console.error('❌ JavaScript Error: ' + msg + ' (' + url + ':' + line + ':' + col + ')');
+  return true;
+};
+
+window.addEventListener('error', function(event){
+  console.error('❌ Event Error:', event.message);
+}, true);
+
+window.addEventListener('unhandledrejection', function(event){
+  console.error('❌ Unhandled Promise Rejection:', event.reason);
+}, true);
 var zxingReady = false, zxingLoadingError = false;
 var zxingCheckInterval = null;
 
@@ -2361,6 +2428,23 @@ function updBdg(){
     $('bdg').style.display = 'none';
   }
 }
+
+// ── EVENT LISTENERS DIAGNOSTIC ────────────────────────
+if($('btn-diag-close')) $('btn-diag-close').onclick = function(){ closeMod('m-diag'); };
+if($('btn-diag-clear')) $('btn-diag-clear').onclick = function(){ diagLogs = []; updateDiagDisplay(); };
+
+// Ajouter un bouton pour ouvrir le diagnostic (raccourci clavier Ctrl+D ou triple-tap)
+var diagTripleTaps = 0;
+document.addEventListener('click', function(e){
+  if(e.target.id === 'nav' || e.target.closest('#nav')){
+    diagTripleTaps++;
+    setTimeout(function(){ diagTripleTaps = 0; }, 500);
+    if(diagTripleTaps === 3){
+      openMod('m-diag');
+      diagTripleTaps = 0;
+    }
+  }
+});
 
 // ── INIT ──────────────────────────────────────────────
 loadAll();
