@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <meta name="mobile-web-app-capable" content="yes">
@@ -15,6 +14,8 @@
 <script src="https://accounts.google.com/gsi/client" async></script>
 <!-- ── ZXING.JS POUR FALLBACK iOS (VERSION UMD NAVIGATEUR) ── -->
 <script id="zxing-script" async src="https://cdn.jsdelivr.net/npm/@zxing/library@0.20.0/umd/index.min.js"></script>
+<!-- ── HTML5-QRCODE POUR iOS (MEILLEUR QUE ZXING) ── -->
+<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 <style>
 :root{--navy:#1A2B3C;--org:#FF6B35;--org2:#FFF0EB;--grn:#2ECC71;--grn2:#E8F8F0;--bg:#F0F4F8;--card:#fff;--txt:#1A2B3C;--mut:#6B7A8D;--brd:#DDE3EC;--red:#E53E3E;--red2:#FEF2F2;}
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
@@ -142,19 +143,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--txt);displa
 .lock-badge-input:focus{border-color:var(--org);outline:none;}
 .lock-btn-login{width:100%;padding:12px;background:var(--navy);border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:600;cursor:pointer;}
 .lock-btn-login:active{opacity:.9;}
-<div id="reader" style="width:100%; max-width:500px; margin:auto;"></div>
-<button id="stopScanner" style="
-   display:none;
-   margin:15px auto;
-   padding:12px 20px;
-   font-size:16px;
-   border:none;
-   border-radius:8px;
-   background:#d32f2f;
-   color:white;
-">
-   Fermer le scanner
-</button>
+
 /* ── PPN BADGE ── */
 .ppn-badge{background:var(--grn);color:#fff;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600;display:inline-block;margin-right:8px;}
 </style>
@@ -466,7 +455,9 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--txt);displa
 </div>
 
 <div id="cam">
+  <div id="reader" style="width:100%;display:none;"></div>
   <video id="camv" autoplay playsinline muted style="width:100%;flex:1;object-fit:cover;"></video>
+  <button id="stopScanner" style="display:none;position:absolute;bottom:20px;left:50%;transform:translateX(-50%);margin:0;padding:12px 20px;font-size:14px;border:none;border-radius:8px;background:#d32f2f;color:white;z-index:100;">🔴 Fermer le scanner</button>
   <div class="cctrl">
     <span style="color:rgba(255,255,255,.7);font-size:13px;">&#128247; Pointez vers le code-barres</span>
     <button class="ccls" id="btn-cam-cls">&#10005; Fermer</button>
@@ -495,6 +486,10 @@ var arts = {}, lists = [], curList = null, pendArt = null;
 var currencySymbol = 'XPF'; // Devise Polynésie Française
 var hasShownNewListModal = false; // Flag pour modal nouvelle liste
 var camMode = 'scan', camStream = null, camTimer = null;
+
+// ── HTML5-QRCODE VARIABLES ────────────────────────────
+var html5QrCode = null;
+var scannerRunning = false;
 var users = [], currentUser = null;
 var autoLockDelay = 0, autoLockTimer = null;
 var tokenClient = null, googleToken = null, pendingAction = null;
@@ -1997,177 +1992,65 @@ var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
             (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
 // ── GESTION CAMÉRA ────────────────────────────────────
-let html5QrCode = null;
+var lastCode = '', lastTime = 0;
 
-let scannerRunning = false;
+// ── HTML5-QRCODE FUNCTIONS ────────────────────────────
+function startHtml5QrCode(){
+  if(scannerRunning) return;
+  
+  html5QrCode = new Html5Qrcode("reader");
+  
+  var config = {
+    fps: 10,
+    qrbox: {width: 300, height: 120},
+    formatsToSupport: [
+      Html5QrcodeSupportedFormats.EAN_13,
+      Html5QrcodeSupportedFormats.EAN_8,
+      Html5QrcodeSupportedFormats.CODE_128,
+      Html5QrcodeSupportedFormats.CODE_39,
+      Html5QrcodeSupportedFormats.QR_CODE
+    ],
+    aspectRatio: 1.7777778
+  };
+  
+  html5QrCode.start(
+    {facingMode: "environment"},
+    config,
+    function(decodedText){
+      console.log('[HTML5-QRCODE] Code détecté:', decodedText);
+      onCodeDetected(decodedText);
+    },
+    function(errorMessage){
+      // Erreurs normales lors du scanning
+    }
+  ).then(function(){
+    scannerRunning = true;
+    $('reader').style.display = 'block';
+    $('camv').style.display = 'none';
+    $('stopScanner').style.display = 'block';
+    console.log('[HTML5-QRCODE] Scanner démarré');
+  }).catch(function(error){
+    console.error('[HTML5-QRCODE] Erreur:', error);
+    toast('Caméra non disponible. Vérifiez les permissions.','er');
+  });
+}
 
-function startBarcodeScanner() {
-
-    if (scannerRunning) return;
-
-    html5QrCode = new Html5Qrcode("reader");
-
-    const config = {
-
-        fps: 10,
-
-        // Zone de lecture adaptée aux codes-barres EAN-13
-
-        qrbox: {
-
-            width: 300,
-
-            height: 120
-
-        },
-
-        // On limite la lecture aux formats nécessaires
-
-        formatsToSupport: [
-
-            Html5QrcodeSupportedFormats.EAN_13,
-
-            Html5QrcodeSupportedFormats.EAN_8,
-
-            Html5QrcodeSupportedFormats.CODE_128
-
-        ],
-
-        // Utilise la caméra arrière
-
-        aspectRatio: 1.7777778
-
-    };
-
-    html5QrCode.start(
-
-        {
-
-            facingMode: "environment"
-
-        },
-
-        config,
-
-        function(decodedText, decodedResult) {
-
-            console.log("Code détecté :", decodedText);
-
-            // Arrête immédiatement le scanner
-
-            stopBarcodeScanner();
-
-            // ==========================================
-
-            // ICI : ton traitement actuel du code-barres
-
-            // ==========================================
-
-            traiterCodeBarre(decodedText);
-
-        },
-
-        function(errorMessage) {
-
-            // Les erreurs de lecture sont normales
-
-            // pendant que la caméra cherche le code.
-
-        }
-
-    ).then(function() {
-
-        scannerRunning = true;
-
-        document.getElementById("stopScanner").style.display = "block";
-
-    }).catch(function(error) {
-
-        console.error("Erreur caméra :", error);
-
-        alert(
-
-            "Impossible de démarrer le scanner.\n\n" +
-
-            "Vérifie que Safari a bien l'autorisation d'utiliser la caméra."
-
-        );
-
+function stopHtml5QrCode(){
+  if(!html5QrCode || !scannerRunning) return;
+  
+  html5QrCode.stop()
+    .then(function(){
+      html5QrCode.clear();
+      scannerRunning = false;
+      $('reader').style.display = 'none';
+      $('camv').style.display = 'block';
+      $('stopScanner').style.display = 'none';
+      console.log('[HTML5-QRCODE] Scanner arrêté');
+    })
+    .catch(function(error){
+      console.error('[HTML5-QRCODE] Erreur arrêt:', error);
     });
-
 }
-
-
-function stopBarcodeScanner() {
-
-    if (!html5QrCode || !scannerRunning) return;
-
-    html5QrCode.stop()
-
-        .then(function() {
-
-            html5QrCode.clear();
-
-            scannerRunning = false;
-
-            document.getElementById("stopScanner").style.display = "none";
-
-        })
-
-        .catch(function(error) {
-
-            console.error("Erreur lors de l'arrêt du scanner :", error);
-
-        });
-
-}
-
-
-document.getElementById("stopScanner").addEventListener(
-
-    "click",
-
-    stopBarcodeScanner
-
-);
-
-
-// ==========================================
-
-// TRAITEMENT DU CODE-BARRES
-
-// ==========================================
-
-function traiterCodeBarre(code) {
-
-    console.log("EAN-13 trouvé :", code);
-
-    /*
-
-     * C'est ici qu'on doit connecter le scanner
-
-     * à ton système actuel de Balisage TPC.
-
-     *
-
-     * Exemple :
-
-     *
-
-     * rechercherArticle(code);
-
-     *
-
-     * ou :
-
-     *
-
-     * document.getElementById("codeArticle").value = code;
-
-     */
-
-}
- var lastCode = '', lastTime = 0;
 
 function onCodeDetected(code){
   var now = Date.now();
@@ -2237,6 +2120,14 @@ $('btn-add-art-cancel').onclick = function(){
   closeMod('m-add-art');
 };
 
+// ── HTML5-QRCODE BUTTON ────────────────────────────
+if($('stopScanner')){
+  $('stopScanner').onclick = function(){
+    stopHtml5QrCode();
+    closeCam();
+  };
+}
+
 
 var camInp1 = $('cam-inp1');
 var camInp2 = $('cam-inp2');
@@ -2246,8 +2137,9 @@ if(camInp2) camInp2.onchange = function(){ if(this.files[0]) decodeImageFile(thi
 function openCam(mode){
   camMode = mode;
   if(isIOS){
-    var inp = (mode === 'scan' || mode === 'badge_reg') ? $('cam-inp1') : $('cam-inp2');
-    if(inp){ inp.value=''; inp.click(); }
+    // Sur iOS, utiliser html5-qrcode au lieu du file input
+    $('cam').classList.add('on');
+    startHtml5QrCode();
     return;
   }
   if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
@@ -2272,6 +2164,9 @@ function openCam(mode){
 }
 
 function closeCam(){
+  // Arrêter html5-qrcode si actif
+  if(scannerRunning) stopHtml5QrCode();
+  
   clearInterval(camTimer); camTimer = null;
   if(camStream){
     camStream.getTracks().forEach(function(t){ t.stop(); });
