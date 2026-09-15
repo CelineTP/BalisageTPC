@@ -2048,6 +2048,56 @@ function startVideoScan(video){
       return;
     }catch(e){}
   }
+  
+  // FALLBACK iOS Safari : capturer des frames avec ZXing ou scan manuel
+  if(isIOS || /Safari/.test(navigator.userAgent)){
+    console.log('[BALISAGE SCAN] iOS/Safari : mode capture manuelle ou ZXing');
+    
+    // Tenter avec ZXing si disponible
+    if(zxingReady){
+      console.log('[BALISAGE SCAN] ZXing disponible, scan vidéo avec ZXing');
+      camTimer = setInterval(function(){
+        if(!video.videoWidth || !video.videoHeight) return;
+        
+        // Capturer un frame du canvas
+        try{
+          var canvas = document.createElement('canvas');
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          var ctx = canvas.getContext('2d');
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          
+          // Décoder avec ZXing
+          tryZXingDecodeCanvas(canvas, true);  // true = ne pas afficher de toast à chaque tentative
+        }catch(e){
+          console.log('[BALISAGE SCAN] Erreur ZXing frame:', e.message);
+        }
+      }, 800);  // Chaque 800ms au lieu de 500ms pour moins de charge
+      return;
+    }
+    
+    // Sinon : afficher un bouton "Capturer"
+    console.log('[BALISAGE SCAN] Aucun BarcodeDetector ni ZXing, scan manuel');
+    var btn = document.createElement('button');
+    btn.textContent = '📸 Capturer le code-barre';
+    btn.style.cssText = 'position:absolute;bottom:20px;left:50%;transform:translateX(-50%);padding:12px 24px;background:#FF6B35;color:white;border:none;border-radius:8px;font-size:16px;cursor:pointer;z-index:9999;';
+    btn.onclick = function(){
+      var canvas = document.createElement('canvas');
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      var ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      canvas.toBlob(function(blob){
+        var file = new File([blob], 'capture.png', {type:'image/png'});
+        decodeImageFile(file);
+      });
+    };
+    $('cam').appendChild(btn);
+    toast('Scan manuel : cliquez sur "Capturer" quand le code est visible','');
+    return;
+  }
+  
   toast('Scan non disponible sur ce navigateur — saisissez le code','er');
   closeCam();
 }
@@ -2201,29 +2251,35 @@ function tryZXingDecode(img, url, attempt){
   }
 }
 
-function tryZXingDecodeCanvas(canvas, attempt){
-  attempt = attempt || 0;
-  console.log('[BALISAGE SCAN] Tentative décodage ZXing sur canvas (tentative ' + (attempt + 1) + '/10)');
+function tryZXingDecodeCanvas(canvas, attemptOrSilent){
+  var attempt = (typeof attemptOrSilent === 'number') ? attemptOrSilent : 0;
+  var silent = (attemptOrSilent === true);  // Si on passe true, mode silent
+  
+  if(!silent){
+    console.log('[BALISAGE SCAN] Tentative décodage ZXing sur canvas (tentative ' + (attempt + 1) + '/10)');
+  }
   
   if(!isZXingAvailable()){
-    console.warn('[BALISAGE SCAN] ❌ ZXing non prêt pour canvas — état: ready=' + zxingReady + ', error=' + zxingLoadingError);
-    
-    if(zxingLoadingError){
-      toast('ZXing n\'a pas pu être chargé. Saisissez le code manuellement.','er');
-    } else if(attempt < 9){
-      console.log('[BALISAGE SCAN] ZXing non prêt pour canvas, nouvelle tentative ' + (attempt + 2) + '/10');
-      toast('Scan en cours de chargement... Réessayez dans 2 secondes','');
-      setTimeout(function(){ tryZXingDecodeCanvas(canvas, attempt + 1); }, 2000);
-    } else {
-      // 10 tentatives dépassées
-      console.error('[BALISAGE SCAN] ZXing indisponible après 10 tentatives sur canvas');
-      toast('Le scanner n\'est pas disponible. Saisissez le code manuellement.','er');
+    if(!silent){
+      console.warn('[BALISAGE SCAN] ❌ ZXing non prêt pour canvas — état: ready=' + zxingReady + ', error=' + zxingLoadingError);
+      
+      if(zxingLoadingError){
+        toast('ZXing n\'a pas pu être chargé. Saisissez le code manuellement.','er');
+      } else if(attempt < 9){
+        console.log('[BALISAGE SCAN] ZXing non prêt pour canvas, nouvelle tentative ' + (attempt + 2) + '/10');
+        toast('Scan en cours de chargement... Réessayez dans 2 secondes','');
+        setTimeout(function(){ tryZXingDecodeCanvas(canvas, attempt + 1); }, 2000);
+      } else {
+        // 10 tentatives dépassées
+        console.error('[BALISAGE SCAN] ZXing indisponible après 10 tentatives sur canvas');
+        toast('Le scanner n\'est pas disponible. Saisissez le code manuellement.','er');
+      }
     }
     return;
   }
   
   try{
-    console.log('[BALISAGE SCAN] Création BrowserMultiFormatReader pour canvas');
+    if(!silent) console.log('[BALISAGE SCAN] Création BrowserMultiFormatReader pour canvas');
     var reader = new ZXing.BrowserMultiFormatReader();
     
     console.log('[BALISAGE SCAN] Démarrage décodage avec decodeFromCanvasElement');
