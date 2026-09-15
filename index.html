@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
+<script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <meta name="mobile-web-app-capable" content="yes">
@@ -141,7 +142,19 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--txt);displa
 .lock-badge-input:focus{border-color:var(--org);outline:none;}
 .lock-btn-login{width:100%;padding:12px;background:var(--navy);border:none;border-radius:8px;color:#fff;font-size:14px;font-weight:600;cursor:pointer;}
 .lock-btn-login:active{opacity:.9;}
-
+<div id="reader" style="width:100%; max-width:500px; margin:auto;"></div>
+<button id="stopScanner" style="
+   display:none;
+   margin:15px auto;
+   padding:12px 20px;
+   font-size:16px;
+   border:none;
+   border-radius:8px;
+   background:#d32f2f;
+   color:white;
+">
+   Fermer le scanner
+</button>
 /* ── PPN BADGE ── */
 .ppn-badge{background:var(--grn);color:#fff;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:600;display:inline-block;margin-right:8px;}
 </style>
@@ -1984,7 +1997,177 @@ var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
             (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 
 // ── GESTION CAMÉRA ────────────────────────────────────
-var lastCode = '', lastTime = 0;
+let html5QrCode = null;
+
+let scannerRunning = false;
+
+function startBarcodeScanner() {
+
+    if (scannerRunning) return;
+
+    html5QrCode = new Html5Qrcode("reader");
+
+    const config = {
+
+        fps: 10,
+
+        // Zone de lecture adaptée aux codes-barres EAN-13
+
+        qrbox: {
+
+            width: 300,
+
+            height: 120
+
+        },
+
+        // On limite la lecture aux formats nécessaires
+
+        formatsToSupport: [
+
+            Html5QrcodeSupportedFormats.EAN_13,
+
+            Html5QrcodeSupportedFormats.EAN_8,
+
+            Html5QrcodeSupportedFormats.CODE_128
+
+        ],
+
+        // Utilise la caméra arrière
+
+        aspectRatio: 1.7777778
+
+    };
+
+    html5QrCode.start(
+
+        {
+
+            facingMode: "environment"
+
+        },
+
+        config,
+
+        function(decodedText, decodedResult) {
+
+            console.log("Code détecté :", decodedText);
+
+            // Arrête immédiatement le scanner
+
+            stopBarcodeScanner();
+
+            // ==========================================
+
+            // ICI : ton traitement actuel du code-barres
+
+            // ==========================================
+
+            traiterCodeBarre(decodedText);
+
+        },
+
+        function(errorMessage) {
+
+            // Les erreurs de lecture sont normales
+
+            // pendant que la caméra cherche le code.
+
+        }
+
+    ).then(function() {
+
+        scannerRunning = true;
+
+        document.getElementById("stopScanner").style.display = "block";
+
+    }).catch(function(error) {
+
+        console.error("Erreur caméra :", error);
+
+        alert(
+
+            "Impossible de démarrer le scanner.\n\n" +
+
+            "Vérifie que Safari a bien l'autorisation d'utiliser la caméra."
+
+        );
+
+    });
+
+}
+
+
+function stopBarcodeScanner() {
+
+    if (!html5QrCode || !scannerRunning) return;
+
+    html5QrCode.stop()
+
+        .then(function() {
+
+            html5QrCode.clear();
+
+            scannerRunning = false;
+
+            document.getElementById("stopScanner").style.display = "none";
+
+        })
+
+        .catch(function(error) {
+
+            console.error("Erreur lors de l'arrêt du scanner :", error);
+
+        });
+
+}
+
+
+document.getElementById("stopScanner").addEventListener(
+
+    "click",
+
+    stopBarcodeScanner
+
+);
+
+
+// ==========================================
+
+// TRAITEMENT DU CODE-BARRES
+
+// ==========================================
+
+function traiterCodeBarre(code) {
+
+    console.log("EAN-13 trouvé :", code);
+
+    /*
+
+     * C'est ici qu'on doit connecter le scanner
+
+     * à ton système actuel de Balisage TPC.
+
+     *
+
+     * Exemple :
+
+     *
+
+     * rechercherArticle(code);
+
+     *
+
+     * ou :
+
+     *
+
+     * document.getElementById("codeArticle").value = code;
+
+     */
+
+}
+ var lastCode = '', lastTime = 0;
 
 function onCodeDetected(code){
   var now = Date.now();
