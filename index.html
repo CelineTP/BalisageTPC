@@ -249,6 +249,7 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--txt);displa
     <!-- ── INPUTS IMPORT CSV ET PROMO (cachés) ── -->
     <input type="file" id="csv-inp" accept=".csv" style="display:none;">
     <input type="file" id="promo-inp" accept=".csv" style="display:none;">
+    <input type="file" id="ppn-inp" accept=".csv" style="display:none;">
   </div>
 
   <!-- ── PARAMÈTRE PPN ── -->
@@ -308,11 +309,17 @@ body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--txt);displa
       <div style="flex:1;"><div class="slb">Importer promotions</div><div class="sds">Surcharges tarifaires</div></div>
       <button class="btn bP bSm" id="btn-promo-imp">Importer</button>
     </div>
+    <div class="sr">
+      <div style="flex:1;"><div class="slb">Importer PPN</div><div class="sds">Codes première nécessité</div></div>
+      <button class="btn bP bSm" id="btn-ppn-imp">Importer</button>
+    </div>
     <div id="imp-st" style="display:none;padding:12px;background:var(--grn2);border-radius:8px;margin-top:12px;color:var(--grn);font-size:13px;font-weight:600;"></div>
     <div id="imp-promo-st" style="display:none;padding:12px;background:var(--grn2);border-radius:8px;margin-top:12px;color:var(--grn);font-size:13px;font-weight:600;"></div>
+    <div id="imp-ppn-st" style="display:none;padding:12px;background:var(--grn2);border-radius:8px;margin-top:12px;color:var(--grn);font-size:13px;font-weight:600;"></div>
     <div style="margin-top:12px;display:flex;gap:8px;">
       <button class="btn bD bSm" id="btn-clr">Effacer stock</button>
       <button class="btn bD bSm" id="btn-clr-promo">Effacer promos</button>
+      <button class="btn bD bSm" id="btn-clr-ppn">Effacer PPN</button>
     </div>
   </div>
 
@@ -1221,6 +1228,7 @@ $('btn-clr').onclick = function(){
 
 // ── IMPORT PROMOTIONS ─────────────────────────────────
 var promos = {};
+var ppn = {};  // Codes PPN (première nécessité)
 function savePromos(){ lsSet('bp_promos', JSON.stringify(promos)); }
 function loadPromos(){ 
   try { 
@@ -1228,7 +1236,8 @@ function loadPromos(){
     promos = d ? JSON.parse(d) : {}; 
   } catch(e) { 
     promos = {}; 
-  } 
+  }
+  loadPPN();  // Charger aussi les codes PPN
 }
 
 $('btn-promo-imp').onclick = function(){ $('promo-inp').click(); };
@@ -1238,6 +1247,16 @@ $('btn-clr-promo').onclick = function(){
   promos = {}; savePromos();
   var s = $('imp-promo-st'); s.textContent = ''; s.style.display = 'none';
   toast('Promotions effacées');
+};
+
+// ── PPN Buttons ────────────────────────────────────────
+$('btn-ppn-imp').onclick = function(){ $('ppn-inp').click(); };
+$('ppn-inp').onchange = function(){ if(this.files[0]) importPPN(this.files[0]); this.value = ''; };
+$('btn-clr-ppn').onclick = function(){
+  if(!confirm('Effacer tous les codes PPN ?')) return;
+  ppn = {}; savePPN();
+  var s = $('imp-ppn-st'); s.textContent = ''; s.style.display = 'none';
+  toast('Codes PPN effacés');
 };
 
 function importPromo(file){
@@ -1300,6 +1319,55 @@ function parsePromo(txt, fname){
   s.textContent = '✓ ' + cnt + ' promo(s) importée(s)';
   s.style.display = 'block';
   toast(cnt + ' promo(s) chargée(s)');
+}
+
+// ── PPN (Codes première nécessité) ────────────────────
+function savePPN(){ 
+  lsSet('bp_ppn', JSON.stringify(ppn)); 
+}
+function loadPPN(){
+  var d = lsGet('bp_ppn');
+  ppn = d ? JSON.parse(d) : {};
+}
+function importPPN(file){
+  var r = new FileReader();
+  r.onload = function(e){
+    var txt = e.target.result;
+    if(txt && txt.length > 0){
+      parsePPN(txt, file.name);
+    } else {
+      var r2 = new FileReader();
+      r2.onload = function(e2){ parsePPN(e2.target.result, file.name); };
+      r2.readAsText(file, 'ISO-8859-1');
+    }
+  };
+  r.readAsText(file, 'UTF-8');
+}
+
+function parsePPN(txt, fname){
+  var lines = txt.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  if(lines.length === 0) { toast('Fichier vide'); return; }
+  
+  ppn = {};
+  var cnt = 0;
+  
+  // Première ligne = header ou données ?
+  var startIdx = 0;
+  if(lines[0].toLowerCase().includes('code')) startIdx = 1;  // Si header
+  
+  for(var i = startIdx; i < lines.length; i++){
+    var code = lines[i].trim();
+    if(code && code.length > 0){
+      ppn[code] = true;
+      cnt++;
+    }
+  }
+  
+  savePPN(); 
+  var s = $('imp-ppn-st');
+  s.textContent = '✓ ' + cnt + ' code(s) PPN importé(s)';
+  s.style.display = 'block';
+  toast(cnt + ' code(s) PPN chargé(s)');
 }
 
 function importCSV(file){
@@ -1451,8 +1519,11 @@ function doSearch(q){
         var priceHtml = hasPricePromo ? 
           '<span style="text-decoration:line-through;color:var(--mut);">'+formatPrice(a.pv)+'</span> '+formatPrice(pr) :
           formatPrice(a.pv);
+        var codeArt = String(a.code).padStart(6, '0');  // Format 000000
+        var isPPN = ppn[a.code];
+        var ppnBadge = isPPN ? ' 🔴' : '';
         h += '<div class="result-item" data-ean="'+a.ean+'" data-code="'+a.code+'">'+
-          '<div><div class="result-lib">'+a.lib+'</div><div class="result-meta">'+a.ean+' | '+a.fam+'</div></div>'+
+          '<div><div class="result-lib">'+a.lib+ppnBadge+'</div><div class="result-meta">Code: '+codeArt+' | EAN: '+a.ean+' | '+a.fam+'</div></div>'+
           '<div class="result-price">'+priceHtml+currencySymbol+'</div></div>';
       });
       h += '</div>';
@@ -1530,13 +1601,15 @@ function findArtsByLib(q, mode){
 function renderArtCard(a){
   var hasPricePromo = promos[a.code];
   var pr = hasPricePromo ? promos[a.code].promo : a.pv;
-  var ppnBadge = a.ppn ? '<span class="ppn-badge" style="margin-left:10px;">PPN</span>' : '';
+  var isPPN = ppn[a.code];
+  var ppnBadge = isPPN ? '<span style="display:inline-block;margin-left:10px;padding:4px 8px;background:#e74c3c;color:white;border-radius:4px;font-size:11px;font-weight:600;">🔴 PPN</span>' : '';
   var priceDisplay = hasPricePromo ? 
     '<span style="text-decoration:line-through;color:var(--mut);">'+formatPrice(a.pv)+'</span> '+formatPrice(pr) :
     formatPrice(a.pv);
+  var codeArt = String(a.code).padStart(6, '0');  // Format 000000
   return '<div class="ares">'+
     '<div class="ahdr">'+
-    '<div><div class="alib">'+a.lib+ppnBadge+'</div><div class="acode">'+a.ean+'</div></div></div>'+
+    '<div><div class="alib">'+a.lib+ppnBadge+'</div><div class="acode" style="font-size:12px;color:var(--mut);">Code: '+codeArt+' | EAN: '+a.ean+'</div></div></div>'+
     '<div class="abody">'+
     '<div style="font-size:28px;margin-bottom:8px;"><span class="pmain">'+priceDisplay+'</span>'+currencySymbol+'</div>'+
     '<div class="ameta">'+
@@ -1645,9 +1718,13 @@ function showArticleSearchResults(results){
       '<span style="text-decoration:line-through;color:var(--mut);">'+formatPrice(a.pv)+'</span> '+formatPrice(pr) :
       formatPrice(a.pv);
     
+    var codeArt = String(a.code).padStart(6, '0');  // Format 000000
+    var isPPN = ppn[a.code];
+    var ppnBadge = isPPN ? ' 🔴' : '';
+    
     h += '<div style="padding:10px;background:var(--bg2);border-radius:6px;cursor:pointer;" data-search-art="'+ne(a.ean||a.code)+'">'+
-      '<div style="font-weight:600;font-size:13px;">'+a.lib+'</div>'+
-      '<div style="font-size:11px;color:var(--mut);margin-top:2px;">'+a.ean+' | '+a.code+'</div>'+
+      '<div style="font-weight:600;font-size:13px;">'+a.lib+ppnBadge+'</div>'+
+      '<div style="font-size:11px;color:var(--mut);margin-top:2px;">Code: '+codeArt+' | EAN: '+a.ean+'</div>'+
       '<div style="font-weight:600;color:var(--org);margin-top:4px;">'+priceHtml+currencySymbol+'</div>'+
     '</div>';
   });
@@ -1680,8 +1757,12 @@ function showArticleSearchResults(results){
 function openAddArticleModal(art){
   lastSearchResultArt = art;
   
-  $('m-add-art-name').textContent = art.lib;
-  $('m-add-art-code').textContent = art.ean + ' | ' + art.code;
+  var codeArt = String(art.code).padStart(6, '0');  // Format 000000
+  var isPPN = ppn[art.code];
+  var ppnBadge = isPPN ? ' 🔴 PPN' : '';
+  
+  $('m-add-art-name').textContent = art.lib + ppnBadge;
+  $('m-add-art-code').textContent = 'Code: ' + codeArt + ' | EAN: ' + art.ean;
   
   var pr = promos[art.code] ? promos[art.code].promo : art.pv;
   var hasPricePromo = promos[art.code];
@@ -1759,10 +1840,13 @@ function renderDetArts(){
   l.arts.forEach(function(a, i){
     var d = document.createElement('div');
     d.className = 'dar';
+    var codeArt = String(a.code).padStart(6, '0');  // Format 000000
+    var isPPN = ppn[a.code];
+    var ppnBadge = isPPN ? ' 🔴' : '';
     d.innerHTML = 
       '<div class="dai">'+
-      '<div class="dal">'+a.lib+'</div>'+
-      '<div class="dam">'+a.ean+'</div>'+
+      '<div class="dal">'+a.lib+ppnBadge+'</div>'+
+      '<div class="dam">Code: '+codeArt+' | EAN: '+a.ean+'</div>'+
       '</div>'+
       '<div class="qty-wrap">'+
       '<button class="qty-btn" data-i="'+i+'" data-d="-1">−</button>'+
