@@ -1906,7 +1906,7 @@ function b64ToBytes(b64){
 // ── VERSION 1 : Code Article uniquement ──
 function buildXLS_CodeOnly(l){
   if(!l || !Array.isArray(l.arts)) return null;
-  var dateFile = String(l.date||'').replace(/\\//g, '-');
+  var dateFile = String(l.date||'').replace(/\//g, '-');
   var fname = safeName(l.name) + '_CODE_' + dateFile + '.xls';
 
   // Générer le classeur à partir de la liste actuellement sélectionnée.
@@ -1929,7 +1929,7 @@ function buildXLS_CodeOnly(l){
 // ── VERSION 2 : Code-barre | Libellé | Quantité ──
 function buildXLS_Full(l){
   if(!l || !Array.isArray(l.arts)) return null;
-  var dateFile = String(l.date||'').replace(/\\//g, '-');
+  var dateFile = String(l.date||'').replace(/\//g, '-');
   var fname = safeName(l.name) + '_COMPLET_' + dateFile + '.xls';
 
   // Générer le classeur uniquement avec les articles de la liste courante.
