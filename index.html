@@ -2157,14 +2157,20 @@ function doSend(l, email){
         '1. ' + r1.name + ' (Code article uniquement)\n' +
         '2. ' + r2.name + ' (Code-barre | Libellé | Quantité)\n';
      
-sendMail(email,subj,body,
-  { data: r1.blob, name: r1.name },
-  { data: r2.blob, name: r2.name },
+sendGmail(
+  email,
+  subj,
+  body,
+  [
+    { data: r1.blob, name: r1.name },
+    { data: r2.blob, name: r2.name }
+  ],
   function(err) {
     hideOverlay();
 
     if (err && err.status === 401) {
       googleToken = null;
+
       try {
         localStorage.removeItem('bp_gt');
       } catch (e) {
@@ -2191,7 +2197,8 @@ sendMail(email,subj,body,
       showPg('baliser');
     }
   }
-  );
+);
+
     });
   });
 }
