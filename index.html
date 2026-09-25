@@ -2156,10 +2156,26 @@ function doSend(l, email){
         'Fichiers joints :\n' +
         '1. ' + r1.name + ' (Code article uniquement)\n' +
         '2. ' + r2.name + ' (Code-barre | Libellé | Quantité)\n';
-      
-      sendGmail(email, subj, body, [
+     
+    sendMail(email, subj, body,       
         {data: r1.blob, name: r1.name},
-        {data: r2.blob, name: r2.name}
+        {data: r2.blob, name: r2.name} function(err){
+      hideOverlay();
+      if(err && err.status === 401){
+        googleToken = null;
+        try{localStorage.removeItem('bp_gt');}catch(e){delete _memStore['bp_gt'];};
+        updateGoogleUI(false);
+        toast('Session expiree - reconnectez-vous','er');
+      } else if(err){
+        toast('Erreur envoi: '+err.msg,'er');
+      } else {
+        toast('Gmail envoye + Drive sauvegarde !','ok');
+        lists = lists.filter(function(x){ return x.id !== curList; });
+        saveLists();
+        curList = null;
+        renderLists(); updBdg();
+        showPg('baliser');
+
       ]);
     });
   });
