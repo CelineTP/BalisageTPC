@@ -1176,10 +1176,12 @@ $('btn-google-login').onclick = function(){
   requestGoogleToken(null);
 };
 $('btn-google-logout').onclick = function(){
+  // Conserver le token avant de le supprimer : revoke() ne doit jamais recevoir une chaîne vide.
+  var tokenToRevoke = googleToken || '';
   googleToken = null;
   try{localStorage.removeItem('bp_gt');}catch(e){delete _memStore['bp_gt'];};
-  if(typeof google !== 'undefined' && google.accounts && google.accounts.oauth2){
-    google.accounts.oauth2.revoke(googleToken || '', function(){});
+  if(tokenToRevoke && typeof google !== 'undefined' && google.accounts && google.accounts.oauth2){
+    google.accounts.oauth2.revoke(tokenToRevoke, function(){});
   }
   updateGoogleUI(false);
   toast('Déconnecté de Google');
@@ -2095,8 +2097,15 @@ function safeName(n){
 $('btn-send-gmail').onclick = function(){
   var l = lists.find(function(x){ return x.id===curList; });
   if(!l||!l.arts.length){ toast('Liste vide','er'); return; }
-  var email = localStorage.getItem('bp_email')||'';
+  // Lire directement le champ : lsSet() peut stocker dans IndexedDB,
+  // alors que localStorage.getItem() ne voit pas cette valeur.
+  var email = (($('inp-email') && $('inp-email').value) || '').trim();
+  if(!email){
+    try{ email = (localStorage.getItem('bp_email') || '').trim(); }catch(e){}
+  }
   if(!email){ toast('Ajoutez un email dans Reglages','er'); showPg('reglages'); return; }
+  // Synchroniser la valeur pour les prochains envois.
+  lsSet('bp_email', email);
   if(!googleToken){
     toast('Connexion Google requise...');
     requestGoogleToken(function(){ doSend(l, email); });
