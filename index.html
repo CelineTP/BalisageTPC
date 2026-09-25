@@ -2237,6 +2237,93 @@ function sendMail(to, subject, bodyText, attach, aname, cb){
   reader.readAsDataURL(attach);
 }
 
+// Envoi Gmail avec plusieurs pièces jointes dans UN SEUL message.
+// Le bouton d'envoi appelle cette fonction avec les deux fichiers XLS.
+function sendGmail(to, subject, bodyText, attachments, cb){
+  attachments = Array.isArray(attachments) ? attachments : [];
+  cb = (typeof cb === 'function') ? cb : function(){};
+  if(!googleToken){
+    cb({status:401,msg:'Connexion Google requise'});
+    return;
+  }
+  if(!to){
+    cb({status:400,msg:'Adresse email manquante'});
+    return;
+  }
+
+  function readBlob(blob){
+    return new Promise(function(resolve, reject){
+      var reader = new FileReader();
+      reader.onload = function(e){
+        try { resolve(e.target.result.split(',')[1] || ''); }
+        catch(err){ reject(err); }
+      };
+      reader.onerror = function(){ reject(new Error('Erreur lecture pièce jointe')); };
+      reader.readAsDataURL(blob);
+    });
+  }
+
+  Promise.all(attachments.map(function(att){
+    return readBlob(att.data).then(function(b64){
+      return {name: String(att.name || 'piece_jointe.xls'), b64:b64};
+    });
+  })).then(function(files){
+    var boundary = 'BALISAGE_' + Date.now();
+    var subjB64 = btoa(unescape(encodeURIComponent(subject || 'Balisage')));
+    var bodyB64 = btoa(unescape(encodeURIComponent(bodyText || '')));
+    var mime = [
+      'To: ' + to,
+      'Subject: =?UTF-8?B?' + subjB64 + '?=',
+      'MIME-Version: 1.0',
+      'Content-Type: multipart/mixed; boundary="' + boundary + '"',
+      '',
+      '--' + boundary,
+      'Content-Type: text/plain; charset=UTF-8',
+      'Content-Transfer-Encoding: base64',
+      '',
+      bodyB64,
+      ''
+    ];
+
+    files.forEach(function(file){
+      mime.push(
+        '--' + boundary,
+        'Content-Type: application/vnd.ms-excel; name="' + file.name.replace(/"/g,'') + '"',
+        'Content-Transfer-Encoding: base64',
+        'Content-Disposition: attachment; filename="' + file.name.replace(/"/g,'') + '"',
+        '',
+        file.b64,
+        ''
+      );
+    });
+    mime.push('--' + boundary + '--');
+
+    var raw = btoa(unescape(encodeURIComponent(mime.join('\r\n'))))
+      .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+
+    return fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+      method:'POST',
+      headers:{
+        'Authorization':'Bearer ' + googleToken,
+        'Content-Type':'application/json'
+      },
+      body:JSON.stringify({raw:raw})
+    });
+  }).then(function(r){
+    return r.text().then(function(txt){
+      var data = {};
+      try{ data = txt ? JSON.parse(txt) : {}; }catch(e){}
+      if(r.ok){
+        cb(null, data);
+      }else{
+        cb({status:r.status,msg:(data.error && data.error.message) || ('Erreur Gmail ' + r.status)});
+      }
+    });
+  }).catch(function(e){
+    cb({status:0,msg:e && e.message ? e.message : 'Erreur Gmail'});
+  });
+}
+
 // ── DÉTECTION PLATEFORME ─────────────────────────────
 var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
             (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
