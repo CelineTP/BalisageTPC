@@ -1415,8 +1415,11 @@ function parseCSV(txt, fname){
   var cnt = 0; arts = {};
   for(var i = 1; i < lines.length; i++){
     var c = splitLine(lines[i], sep); if(c.length < 2) continue;
+    var rawCode = gs(c,idx.code);
+    // ✅ NORMALISER le code à l'import : "1" → "000001"
+    var normalCode = rawCode ? String(parseInt(rawCode)).padStart(6, '0') : '';
     var a = {
-      code:  gs(c,idx.code),  lib: gs(c,idx.lib) || 'Article sans nom',
+      code:  normalCode,  lib: gs(c,idx.lib) || 'Article sans nom',
       ean:   gs(c,idx.ean),   ref: gs(c,idx.ref),
       pv:    pp(gs(c,idx.pv)), promo: pp(gs(c,idx.promo)),
       stock: parseInt(gs(c,idx.stock)) || 0,
@@ -1911,12 +1914,15 @@ function buildXLS_CodeOnly(l){
   var dateFile = String(l.date||'').replace(/\//g, '-');
   var fname = safeName(l.name) + '_CODE_' + dateFile + '.xls';
 
-  // Générer le classeur à partir de la liste actuellement sélectionnée.
-  // L'ancienne version envoyait un template statique qui ne reprenait pas
-  // les articles présents dans l.arts.
-  var rows = [['Code article','','']];
+  // ✅ En-têtes DOIVENT correspondre exactement au template bali.xls
+  var rows = [['code article']];  // Exact : minuscules, pas de padding
   l.arts.forEach(function(a){
-    rows.push([String(a && a.code != null ? a.code : '').trim(),'','']);
+    var codeStr = String(a && a.code != null ? a.code : '').trim();
+    // Vérifier que le code est bien en format 000000
+    if(codeStr && /^\d+$/.test(codeStr)) {
+      codeStr = codeStr.padStart(6, '0');
+    }
+    rows.push([codeStr]);  // UNE SEULE colonne !
   });
 
   var bookBytes = buildBiff5Book(rows);
@@ -1934,8 +1940,8 @@ function buildXLS_Full(l){
   var dateFile = String(l.date||'').replace(/\//g, '-');
   var fname = safeName(l.name) + '_COMPLET_' + dateFile + '.xls';
 
-  // Générer le classeur uniquement avec les articles de la liste courante.
-  var rows = [['Code-barre','Libellé','Quantité']];
+  // ✅ En-têtes DOIVENT correspondre exactement au template bali1.xls
+  var rows = [['code-barre','libellé','quantité']];  // Exact : minuscules
   l.arts.forEach(function(a){
     rows.push([
       String(a && a.ean != null ? a.ean : '').trim(),
@@ -1989,21 +1995,33 @@ function buildBiff5Book(rows){
 
   // ── Worksheet ────────────────────────────────────────────────
   var ws=[];
-  // BOF worksheet - CORRECT
+  // BOF worksheet
   ws=ws.concat(rec(0x0809,[0x00,0x06,0x10,0x00,0x0A,0x54,0xCD,0x07]));
-  // DIMENSIONS
-  ws=ws.concat(rec(0x0200, u16(0).concat(u16(rows.length)).concat(u16(0)).concat(u16(3)).concat(u16(0))));
-  // Cellules
+  
+  // Déterminer le nombre de colonnes max
+  var maxCols = Math.max.apply(null, rows.map(function(r){ return r.length; }));
+  
+  // DIMENSIONS - ✅ Adapter au nombre réel de colonnes
+  ws=ws.concat(rec(0x0200, u16(0).concat(u16(rows.length)).concat(u16(0)).concat(u16(maxCols)).concat(u16(0))));
+  
+  // Cellules - ✅ Boucler sur le nombre réel de colonnes
   for(var ri=0;ri<rows.length;ri++){
     var row=rows[ri];
     ws=ws.concat(rec(0x0208, u16(ri).concat(u16(0)).concat(u16(3)).concat(u16(0xFF)).concat(u16(0)).concat([0,0,0,0])));
-    // Col 0: Code-barre TOUJOURS en texte (LABEL) pour éviter notation scientifique
-    ws=ws.concat(label(ri,0,15,String(row[0])));
-    // Col 1: Libellé (texte)
-    ws=ws.concat(label(ri,1,15,row[1]));
-    // Col 2: Quantité - en-tête texte, données entier
-    if(ri===0){ ws=ws.concat(label(ri,2,15,row[2])); }
-    else{ ws=ws.concat(rkInt(ri,2,15,row[2])); }
+    
+    // Ajouter chaque colonne selon son type
+    for(var ci=0;ci<row.length;ci++){
+      var val = row[ci];
+      var isNumeric = !isNaN(val) && val !== '';
+      
+      if(isNumeric && ri > 0){
+        // Données numériques (sauf en-tête) : utiliser RK (entier compressé)
+        ws=ws.concat(rkInt(ri,ci,15,val));
+      } else {
+        // Texte ou en-tête : utiliser LABEL
+        ws=ws.concat(label(ri,ci,15,String(val)));
+      }
+    }
   }
   ws=ws.concat(rec(0x000A,[])); // EOF worksheet
 
@@ -2156,49 +2174,11 @@ function doSend(l, email){
         'Fichiers joints :\n' +
         '1. ' + r1.name + ' (Code article uniquement)\n' +
         '2. ' + r2.name + ' (Code-barre | Libellé | Quantité)\n';
-     
-sendGmail(
-  email,
-  subj,
-  body,
-  [
-    { data: r1.blob, name: r1.name },
-    { data: r2.blob, name: r2.name }
-  ],
-  function(err) {
-    hideOverlay();
-
-    if (err && err.status === 401) {
-      googleToken = null;
-
-      try {
-        localStorage.removeItem('bp_gt');
-      } catch (e) {
-        delete _memStore['bp_gt'];
-      }
-
-      updateGoogleUI(false);
-      toast('Session expirée - reconnectez-vous', 'er');
-
-    } else if (err) {
-      toast('Erreur envoi: ' + err.msg, 'er');
-
-    } else {
-      toast('Gmail envoyé + Drive sauvegardé !', 'ok');
-
-      lists = lists.filter(function(x) {
-        return x.id !== curList;
-      });
-
-      saveLists();
-      curList = null;
-      renderLists();
-      updBdg();
-      showPg('baliser');
-    }
-  }
-);
-
+      
+      sendGmail(email, subj, body, [
+        {data: r1.blob, name: r1.name},
+        {data: r2.blob, name: r2.name}
+      ]);
     });
   });
 }
