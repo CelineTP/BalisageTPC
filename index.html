@@ -2012,17 +2012,32 @@ function buildBiff5Book(rows){
     // Ajouter chaque colonne selon son type
     for(var ci=0;ci<row.length;ci++){
       var val = row[ci];
-      var isNumeric = !isNaN(val) && val !== '';
       
-      if(isNumeric && ri > 0){
-        // Données numériques (sauf en-tête) : utiliser RK (entier compressé)
-        ws=ws.concat(rkInt(ri,ci,15,val));
+      // ✅ FIX CRITIQUE: Colonnes 0 et 1 TOUJOURS en LABEL (texte)
+      // Car codes-barres (EAN) et libellés DOIVENT rester texte
+      // pour éviter: notation scientifique, nombres négatifs, perte de précision
+      if(ci === 0 || ci === 1){
+        // Colonne 0 (code-barre ou code article) = TOUJOURS LABEL
+        // Colonne 1 (libellé) = TOUJOURS LABEL
+        ws=ws.concat(label(ri,ci,15,String(val)));
+      } else if(ci === 2){
+        // Colonne 2 (quantité) = RK si numérique (c'est un nombre entier)
+        var isNumeric = !isNaN(val) && val !== '';
+        if(isNumeric && ri > 0){
+          ws=ws.concat(rkInt(ri,ci,15,val));
+        } else {
+          ws=ws.concat(label(ri,ci,15,String(val)));
+        }
       } else {
-        // Texte ou en-tête : utiliser LABEL
+        // Colonnes supplémentaires = LABEL
         ws=ws.concat(label(ri,ci,15,String(val)));
       }
     }
   }
+  // ✅ DÉSACTIVER LA PROTECTION du fichier
+  // Record UNPROTECT (0x0192) : désactive la feuille protégée
+  ws=ws.concat(rec(0x0192,[]));
+  
   ws=ws.concat(rec(0x000A,[])); // EOF worksheet
 
   // ── Assembler Book stream: globals + worksheet ───────────────
@@ -2178,7 +2193,26 @@ function doSend(l, email){
       sendGmail(email, subj, body, [
         {data: r1.blob, name: r1.name},
         {data: r2.blob, name: r2.name}
-      ]);
+      ], function(err){
+        hideOverlay();
+        if(err && err.status === 401){
+          googleToken = null;
+          try{localStorage.removeItem('bp_gt');}catch(e){delete _memStore['bp_gt'];};
+          updateGoogleUI(false);
+          toast('Session expiree - reconnectez-vous','er');
+        } else if(err){
+          toast('Erreur envoi: '+err.msg,'er');
+        } else {
+          toast('Gmail envoye + Drive sauvegarde !','ok');
+          // ✅ Nettoyer après succès
+          lists = lists.filter(function(x){ return x.id !== curList; });
+          saveLists();
+          curList = null;
+          renderLists(); 
+          updBdg();
+          showPg('baliser');
+        }
+      });
     });
   });
 }
