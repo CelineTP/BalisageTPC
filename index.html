@@ -638,12 +638,14 @@ function initIndexedDB(){
       req.onerror = function(){
         console.warn('[STORAGE] IndexedDB failed, using localStorage');
         _dbReady = false;
+        startApp();
       };
       
       req.onsuccess = function(event){
         _db = event.target.result;
         _dbReady = true;
         console.log('[STORAGE] ✅ IndexedDB initialized');
+        preloadStorage(startApp);
       };
       
       req.onupgradeneeded = function(event){
@@ -659,71 +661,63 @@ function initIndexedDB(){
   }
 }
 
+// Cache mémoire synchrone : toutes les données sont chargées depuis IndexedDB au démarrage
+var _started = false;
+function startApp(){
+  if(_started) return;
+  _started = true;
+  loadAll(); loadPromos(); setupAutoLockListeners(); renderUsers();
+  setTimeout(initTokenClient, 1500);
+}
+
+// Charge toutes les clés dans _memStore (IndexedDB prioritaire, anciennes données localStorage en secours)
+function preloadStorage(cb){
+  var done = false;
+  function finish(){ if(!done){ done = true; cb(); } }
+  try{
+    var tx = _db.transaction(['store'], 'readonly');
+    var st = tx.objectStore('store');
+    var rk = st.getAllKeys();
+    var rv = st.getAll();
+    tx.oncomplete = function(){
+      for(var i = 0; i < rk.result.length; i++){ _memStore[rk.result[i]] = rv.result[i]; }
+      finish();
+    };
+    tx.onerror = finish;
+    tx.onabort = finish;
+  }catch(e){ finish(); }
+  try{
+    for(var j = 0; j < localStorage.length; j++){
+      var key = localStorage.key(j);
+      if(key && key.indexOf('bp_') === 0 && !(key in _memStore)){
+        _memStore[key] = localStorage.getItem(key);
+      }
+    }
+  }catch(e){}
+}
+
 function lsSet(k, v){
-  // Priorité: IndexedDB → localStorage → memory
-  
+  _memStore[k] = v;
   if(_dbReady && _db){
     try{
       var tx = _db.transaction(['store'], 'readwrite');
-      var store = tx.objectStore('store');
-      store.put(v, k);
-      console.log('[STORAGE] Saved to IndexedDB:', k);
+      tx.objectStore('store').put(v, k);
+      tx.onerror = tx.onabort = function(){
+        console.warn('[STORAGE] Écriture IndexedDB échouée:', k);
+        try{ localStorage.setItem(k, v); }catch(e){}
+      };
       return;
-    }catch(e){
-      console.warn('[STORAGE] IndexedDB set failed:', e.message);
-    }
+    }catch(e){ console.warn('[STORAGE] IndexedDB set failed:', e.message); }
   }
-  
-  try{ 
-    localStorage.setItem(k, v);
-    console.log('[STORAGE] Saved to localStorage:', k);
-    return;
-  }catch(e){
-    console.warn('[STORAGE] localStorage set failed:', e.message);
-  }
-  
-  _memStore[k] = v;
-  console.log('[STORAGE] Saved to memory:', k);
+  try{ localStorage.setItem(k, v); }catch(e){ console.warn('[STORAGE] localStorage set failed:', e.message); }
 }
 
 function lsGet(k){
-  // Priorité: IndexedDB → localStorage → memory
-  
-  if(_dbReady && _db){
-    var result = null;
-    var tx = _db.transaction(['store'], 'readonly');
-    var store = tx.objectStore('store');
-    var req = store.get(k);
-    
-    req.onsuccess = function(){
-      result = req.result;
-      if(result){
-        console.log('[STORAGE] Retrieved from IndexedDB:', k);
-      }
-    };
-    
-    // Attendre que la transaction se termine
-    try{
-      tx.commit();
-      if(result) return result;
-    }catch(e){}
-  }
-  
+  if(k in _memStore) return _memStore[k];
   try{
     var v = localStorage.getItem(k);
-    if(v !== null){
-      console.log('[STORAGE] Retrieved from localStorage:', k);
-      return v;
-    }
-  }catch(e){
-    console.warn('[STORAGE] localStorage get failed:', e.message);
-  }
-  
-  if(k in _memStore){
-    console.log('[STORAGE] Retrieved from memory:', k);
-    return _memStore[k];
-  }
-  
+    if(v !== null) return v;
+  }catch(e){}
   return null;
 }
 function saveArts(){
@@ -2942,11 +2936,22 @@ document.addEventListener('click', function(e){
 
 // ── INIT ──────────────────────────────────────────────
 initIndexedDB();  // Initialiser la base de données
-loadAll();
-loadPromos();
-setupAutoLockListeners();
-renderUsers();
-setTimeout(initTokenClient, 1500);
+
+// ── STOCKAGE PERSISTANT (évite la purge des données par le navigateur) ──
+function requestPersistentStorage(){
+  try{
+    if(!navigator.storage || !navigator.storage.persist) return;
+    navigator.storage.persisted().then(function(already){
+      if(already){ console.log('[BALISAGE] Stockage déjà persistant'); return; }
+      return navigator.storage.persist().then(function(ok){
+        console.log('[BALISAGE] Stockage persistant demandé, accordé =', ok);
+      });
+    }).catch(function(e){ console.warn('[BALISAGE] Stockage persistant indisponible', e); });
+  }catch(e){ console.warn('[BALISAGE] Stockage persistant erreur', e); }
+}
+requestPersistentStorage();
+if(!('indexedDB' in window)) startApp();
+setTimeout(startApp, 4000);  // filet de sécurité
 
 // ── INITIALISATION ZXING (Asynchrone) ──────────────
 console.log('[BALISAGE SCAN] Initialisation du chargement ZXing');
